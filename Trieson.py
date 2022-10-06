@@ -9,19 +9,32 @@ from TriesonTraveler import TriesonTraveler
 
 #--- PROC FUNCTIONS ---------------------------------------------------------
 def all_seq_combos(seq, min=2):
+    """
+    Get all sequential combinations of sequence. For example:
+    'abcd' -> ['a','ab','abc','abcd','bc','bcd','cd','d']
+    """
     slen = len(seq)
     return (seq[i:j] for i in range(slen) for j in range(i + 1, slen + 1) if (j - i) >= min)
 
 def seq_combos(seq, min=2):
+    """
+    Get sequential combinations of sequence. For example:
+    'abcd' -> ['abcd','bcd','cd','d']
+    """
     slen = len(seq)
-    return (seq[i:] for i in range(slen) if (slen - i) >= 2)
+    return (seq[i:] for i in range(slen) if (slen - i) >= min)
 
 def no_combos(seq):
+    "Return sequence as list. For example: 'a' -> ['a']"
     return [seq]
 
 #--- CLASS DEFINITION -------------------------------------------------------
 class Trieson():
-    "Trie class"
+    """
+    Trie Class
+    add(string, [data], [proc])
+    get([string])
+    """
 
 #--- CONSTRUCTOR ------------------------------------------------------------
     def __init__(self, *, opts: dict | None = None):
