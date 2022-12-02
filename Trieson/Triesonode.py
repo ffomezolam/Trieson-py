@@ -29,18 +29,26 @@ class Triesonode:
     def add(self, char, chain=True):
         "Add char to children and return added node"
 
+        # convenience for passing more than one char to add:
+        # will add each char to this node (will return this node)
+        if len(char) > 1:
+            for c in char:
+                self.add(c, chain=False)
+            return self
+
+        # if char already exists, increment count, else add new node
         if char in self._children:
             self._children[char]._inc()
         else:
             self._children[char] = Triesonode(self, char)
 
-        # return child if chaining
+        # return child if chaining...
         if chain: return self._children[char]
 
         # ... or set chain to False to get same node back
         return self
 
-    def get(self, char=None, w=1):
+    def get(self, char=None, weight=1):
         """
         Return specified child node if exists.
         If no child node specified, get a random node by relative child counts.
@@ -49,34 +57,45 @@ class Triesonode:
         # no children? return None
         if not self._children: return None
 
+        # if no char provided, generate one selected from children
         if char == None:
             children = list(self._children.values())
-            weights = [child._count ** w for child in children]
 
+            # create weights for random selection
+            weights = [child._count ** weight for child in children]
+
+            # select by weighted choice
             char = random.choices(children, weights)[0]._value
 
+        # return node or None
         try:
             return self._children[char]
         except KeyError:
             return None
 
-    def has(self, char=None):
+    def has(self, char=None, n=0):
         """
-        Check if child node exists.
+        Check if child node exists. Can pass integer (positive or negative) to
+        limit success to children that have at least or at most that count.
+
         If no char specified, get list of all child keys.
         """
+
         if not char: return list(self._children.keys())
 
-        return char in self._children
+        # standard return
+        if not n: return char in self._children
+        # bonus 1: return if count is at most n
+        elif n < 0: return char in self._children and self._children[char]._count <= -n
+        # bonus 2: return only if count is at least n
+        else: return char in self._children and self._children[char]._count >= n
 
-    def set_data(self, data=True):
-        "Set data for node"
+    def data(self, data=None):
+        "Get or set data for node"
+
+        if data is None: return self._data
         self._data = data
         return self
-
-    def data(self):
-        "Get data for node"
-        return self._data
 
     def children(self):
         "Get child nodes as list"
@@ -87,40 +106,19 @@ class Triesonode:
         return self._parent
 
     #--- TRAVERSAL ---------------------------------------------------------
-    def traverse(self, proc=None):
+    def traverse(self, pre=None, post=None):
         "Recursive depth-first traversal over all nodes"
         for node in self._children:
             child = self._children[node]
-            # apply process if exists
-            if proc: proc(child)
+
+            # preprocess if exists
+            if pre: pre(child)
+
             yield child
-            yield from child.traverse(proc)
+            yield from child.traverse(pre, post)
 
-    def substrings(self, limit=None):
-        "Collect and return all substrings"
-        string = ''
-        collection = []
-        count = 0
-        limit = limit if limit else 0
-
-        # recursive function for depth-first traversal
-        def travel(node):
-            nonlocal string, limit, count, collection
-
-            for child in node:
-                string += child._value
-
-                if child.data():
-                    collection.append(string)
-                    count += 1
-                    if limit and count >= limit: return True
-
-                travel(child)
-
-            string = string[:-1]
-
-        travel(self)
-        return collection
+            # postprocess if exists
+            if post: post(child)
 
     #--- PRIVATE -----------------------------------------------------------
     def _inc(self):
@@ -138,7 +136,7 @@ class Triesonode:
         return self.has(char)
 
     def __bool__(self):
-        "Boolean access always returns True"
+        "Always true, to allow get() to return falsey if no child exists"
         return True
 
     #--- SPECIAL ACCESSORS --------------------------------------------------
