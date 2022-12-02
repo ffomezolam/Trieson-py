@@ -8,7 +8,11 @@ from . import combos
 
 #--- CLASS DEFINITION -------------------------------------------------------
 class Trieson():
-    "Trie class"
+    """
+    Trie Class
+    add(string, [data], [proc])
+    get([string])
+    """
 
 #--- CONSTRUCTOR ------------------------------------------------------------
     def __init__(self, proc=None):
