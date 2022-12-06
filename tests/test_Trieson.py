@@ -4,8 +4,6 @@ from context import combos
 
 import unittest
 
-# Test Trieson with the plain text processor, so it basically acts like a
-# regular Trie
 class TestTrie(unittest.TestCase):
     def setUp(self):
         self.trie = Trieson.Trieson(combos.none)
@@ -172,6 +170,29 @@ class TestTrie(unittest.TestCase):
         self.trie.add(words)
         for word in self.trie:
             self.assertIn(word, words)
+
+class test_Trieson(unittest.TestCase):
+    """
+    Quick added test to make sure alternate seq_to_end combo works as expected
+    with the Trie.
+    """
+    def setUp(self):
+        self.trie = Trieson.Trieson() # default seq_to_end combos
+
+    def test_proc(self):
+        self.assertEqual(self.trie._proc.__name__, 'seq_to_end')
+
+    def test_add(self):
+        ss = ['apple', 'angel', 'bagel']
+
+        for s in ss:
+            self.trie.add(s)
+
+        for s in ss:
+            for ix in range(0, -2):
+                self.assertTrue(self.trie.has(s[ix:]))
+
+            self.assertFalse(self.trie.has(s[1:-2]))
 
 if __name__ == '__main__':
     unittest.main()

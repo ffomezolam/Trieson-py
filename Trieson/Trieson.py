@@ -85,7 +85,7 @@ class Trieson():
             if not node:
                 return False
 
-        if node.data is not None:
+        if node.data() is not None:
             return True
         else:
             return False
@@ -158,6 +158,7 @@ class Trieson():
     def depth(self):
         return self._depth
 
+#--- MAGIC ------------------------------------------------------------------
     def __contains__(self, string):
         "Check if string in Trie"
         return self.has(string)
