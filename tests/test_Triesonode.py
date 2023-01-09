@@ -9,7 +9,7 @@ class TestTriesonode(unittest.TestCase):
     def test_existence(self):
         self.assertIsInstance(self.node, Triesonode)
 
-    def test_add(self):
+    def test_add_single(self):
         child = self.node.add('a')
 
         self.assertEqual(child._value, 'a')
@@ -27,6 +27,7 @@ class TestTriesonode(unittest.TestCase):
         self.assertEqual(len(self.node), 2)
         self.assertEqual(child._count, 2)
 
+    def test_add_mult(self):
         self.node.add('ccdddeeee')
 
         self.assertIn('c', self.node._children)
@@ -36,6 +37,7 @@ class TestTriesonode(unittest.TestCase):
         self.assertIn('e', self.node._children)
         self.assertEqual(self.node._children['e']._count, 4)
 
+    def test_add_chain(self):
         # test chaining
         word = 'argument'
 
@@ -52,10 +54,10 @@ class TestTriesonode(unittest.TestCase):
     def test_has(self):
         self.node.add('abbccdefggh')
         self.assertTrue(self.node.has('a'))
-        self.assertTrue(self.node.has('c'))
-        self.assertFalse(self.node.has('z'))
         self.assertTrue(self.node.has('b', 2))
+        self.assertTrue(self.node.has('c'))
         self.assertTrue(self.node.has('a', -2))
+        self.assertFalse(self.node.has('z'))
         self.assertFalse(self.node.has('g', 3))
         self.assertFalse(self.node.has('c', -1))
 
@@ -74,7 +76,7 @@ class TestTriesonode(unittest.TestCase):
         # in each instance I'm generating a probability of success based on
         # multiple tries, and comparing it to an arbitrary threshold to
         # determine if the test succeeds
-        #
+
         # Test for standard weight
         tries = 20
         successes = 0
