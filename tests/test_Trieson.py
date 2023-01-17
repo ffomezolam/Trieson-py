@@ -21,9 +21,10 @@ class TestTrie(unittest.TestCase):
         self.assertFalse(n.has(s[1]))
 
         for char in s:
-            self.assertTrue(n.has(char))
-            n = n.get(char)
-            self.assertIsInstance(n, Triesonode)
+            with self.subTest(char = char):
+                self.assertTrue(n.has(char))
+                n = n.get(char)
+                self.assertIsInstance(n, Triesonode)
 
         s2 = 'acorn'
         self.trie.add(s2)
@@ -31,8 +32,9 @@ class TestTrie(unittest.TestCase):
         self.assertEqual(n.get(s2[0])._count, 2)
 
         for char in s2:
-            self.assertTrue(n.has(char))
-            n = n.get(char)
+            with self.subTest(char = char):
+                self.assertTrue(n.has(char))
+                n = n.get(char)
 
         ss = ['amble', 'able']
         self.trie.add(ss)
@@ -40,8 +42,9 @@ class TestTrie(unittest.TestCase):
             n = self.trie._root
 
             for char in s:
-                self.assertTrue(n.has(char))
-                n = n.get(char)
+                with self.subTest(char = char):
+                    self.assertTrue(n.has(char))
+                    n = n.get(char)
 
     def test_has_prefix(self):
         words = ['apple', 'apiary', 'append', 'baby', 'bonus', 'colab']
@@ -57,7 +60,8 @@ class TestTrie(unittest.TestCase):
             self.trie.add(s)
 
         for s in ss:
-            self.assertTrue(self.trie.has(s))
+            with self.subTest(s = s):
+                self.assertTrue(self.trie.has(s))
 
         self.assertFalse(self.trie.has('amble'))
 
@@ -72,10 +76,12 @@ class TestTrie(unittest.TestCase):
             self.trie.add(k, v)
 
         for k, v in ss.items():
-            self.assertEqual(self.trie.get(k), v)
+            with self.subTest(k = k, v = v):
+                self.assertEqual(self.trie.get(k), v)
 
         for k in ss.keys():
-            self.assertFalse(self.trie.get(k[:3]))
+            with self.subTest(k = k):
+                self.assertFalse(self.trie.get(k[:3]))
 
     def test_substrings(self):
         words = ['apple', 'apiary', 'applicable', 'ambient', 'amuse', 'broken']
@@ -87,7 +93,8 @@ class TestTrie(unittest.TestCase):
         result = self.trie.substrings('ap')
         self.assertEqual(len(result), 3)
         for item in result:
-            self.assertIn(item, [w[2:] for w in words if w.startswith('ap')])
+            with self.subTest(item = item):
+                self.assertIn(item, [w[2:] for w in words if w.startswith('ap')])
 
         result = self.trie.substrings('brok')
         self.assertEqual(result[0], 'en')
@@ -99,7 +106,8 @@ class TestTrie(unittest.TestCase):
         matches = self.trie.match('ap')
         self.assertEqual(len(matches), 3)
         for match in matches:
-            self.assertIn(match, [w for w in words if w.startswith('ap')])
+            with self.subTest(match = match):
+                self.assertIn(match, [w for w in words if w.startswith('ap')])
 
         matches = self.trie.match('ab')
         self.assertEqual(len(matches), 2)
@@ -107,7 +115,8 @@ class TestTrie(unittest.TestCase):
         matches = self.trie.match('a', 2)
         self.assertEqual(len(matches), 2)
         for match in matches:
-            self.assertIn(match, [w for w in words if w.startswith('a')])
+            with self.subTest(match = match):
+                self.assertIn(match, [w for w in words if w.startswith('a')])
 
     def test_make(self):
         words = ['any', 'and', 'arm', 'are', 'air', 'ago', 'age', 'bon', 'bog']
@@ -131,7 +140,8 @@ class TestTrie(unittest.TestCase):
         words = ['apple', 'cucumber', 'parrot']
         self.trie.add(words)
         for word in words:
-            self.assertIn(word, self.trie)
+            with self.subTest(word = word):
+                self.assertIn(word, self.trie)
 
         self.assertNotIn('wombat', self.trie)
 
@@ -145,7 +155,8 @@ class TestTrie(unittest.TestCase):
 
         for i, word in enumerate(words):
             datum = data[i]
-            self.assertEqual(datum, self.trie[word])
+            with self.subTest(datum = datum, word = word):
+                self.assertEqual(datum, self.trie[word])
 
     def test_magic_setitem(self):
         items = {
@@ -158,7 +169,8 @@ class TestTrie(unittest.TestCase):
             self.trie[k] = v
 
         for k, v in items.items():
-            self.assertEqual(self.trie.get(k), v)
+            with self.subTest(k = k, v = v):
+                self.assertEqual(self.trie.get(k), v)
 
     def test_magic_len(self):
         words = ['apple', 'apiary', 'ghost', 'morph', 'solo', 'apple']
@@ -169,9 +181,10 @@ class TestTrie(unittest.TestCase):
         words = ['boring', 'almost', 'tryagain', 'maybenexttime', 'oops']
         self.trie.add(words)
         for word in self.trie:
-            self.assertIn(word, words)
+            with self.subTest(word = word):
+                self.assertIn(word, words)
 
-class test_Trieson(unittest.TestCase):
+class TestTrieson(unittest.TestCase):
     """
     Quick added test to make sure alternate seq_to_end combo works as expected
     with the Trie.
@@ -190,9 +203,11 @@ class test_Trieson(unittest.TestCase):
 
         for s in ss:
             for ix in range(0, -2):
-                self.assertTrue(self.trie.has(s[ix:]))
+                with self.subTest(s = s, ix = ix):
+                    self.assertTrue(self.trie.has(s[ix:]))
 
-            self.assertFalse(self.trie.has(s[1:-2]))
+            with self.subTest(s = s):
+                self.assertFalse(self.trie.has(s[1:-2]))
 
 if __name__ == '__main__':
     unittest.main()

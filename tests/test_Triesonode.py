@@ -12,20 +12,23 @@ class TestTriesonode(unittest.TestCase):
     def test_add_single(self):
         child = self.node.add('a')
 
-        self.assertEqual(child._value, 'a')
-        self.assertEqual(child._parent, self.node)
-        self.assertEqual(len(self.node), 1)
-        self.assertEqual(child._count, 1)
+        with self.subTest(child = child):
+            self.assertEqual(child._value, 'a')
+            self.assertEqual(child._parent, self.node)
+            self.assertEqual(len(self.node), 1)
+            self.assertEqual(child._count, 1)
 
         child = self.node.add('b')
 
-        self.assertEqual(len(self.node), 2)
-        self.assertEqual(child._count, 1)
+        with self.subTest(child = child):
+            self.assertEqual(len(self.node), 2)
+            self.assertEqual(child._count, 1)
 
         child = self.node.add('b')
 
-        self.assertEqual(len(self.node), 2)
-        self.assertEqual(child._count, 2)
+        with self.subTest(child = child):
+            self.assertEqual(len(self.node), 2)
+            self.assertEqual(child._count, 2)
 
     def test_add_mult(self):
         self.node.add('ccdddeeee')
@@ -47,9 +50,10 @@ class TestTriesonode(unittest.TestCase):
 
         n = self.node
         for char in word:
-            self.assertIn(char, n._children)
-            n = n._children[char]
-            self.assertEqual(n._value, char)
+            with self.subTest(char = char):
+                self.assertIn(char, n._children)
+                n = n._children[char]
+                self.assertEqual(n._value, char)
 
     def test_has(self):
         self.node.add('abbccdefggh')
@@ -66,11 +70,12 @@ class TestTriesonode(unittest.TestCase):
 
         # test getting individual characters
         for i in range(1,6):
-            n = self.node.get(str(i))
+            with self.subTest(i = i):
+                n = self.node.get(str(i))
 
-            self.assertIsInstance(n, Triesonode)
-            self.assertEqual(n._value, str(i))
-            self.assertEqual(n._count, i)
+                self.assertIsInstance(n, Triesonode)
+                self.assertEqual(n._value, str(i))
+                self.assertEqual(n._count, i)
 
         # test getting random characters
         # in each instance I'm generating a probability of success based on
@@ -124,9 +129,10 @@ class TestTriesonode(unittest.TestCase):
             n.data(data[ix])
 
         for ix, char in enumerate(chars):
-            n = self.node.get(char)
-            self.assertIsInstance(n, Triesonode)
-            self.assertEqual(n.data(), data[ix])
+            with self.subTest(ix = ix, char = char):
+                n = self.node.get(char)
+                self.assertIsInstance(n, Triesonode)
+                self.assertEqual(n.data(), data[ix])
 
     def test_children(self):
         chars = 'abccde'
@@ -136,10 +142,11 @@ class TestTriesonode(unittest.TestCase):
         self.assertIsInstance(children, list)
 
         for child in children:
-            self.assertIsInstance(child, Triesonode)
-            self.assertIn(child._value, chars)
-            if(child._value == 'c'):
-                self.assertEqual(child._count, 2)
+            with self.subTest(child = child):
+                self.assertIsInstance(child, Triesonode)
+                self.assertIn(child._value, chars)
+                if(child._value == 'c'):
+                    self.assertEqual(child._count, 2)
 
     def test_parent(self):
         chars = 'abc'
@@ -148,7 +155,8 @@ class TestTriesonode(unittest.TestCase):
 
         self.assertIsNone(self.node.parent())
         for child in children:
-            self.assertIs(child.parent(), self.node)
+            with self.subTest(child = child):
+                self.assertIs(child.parent(), self.node)
 
     def test_traverse(self):
         words = ['acorn', 'accede', 'ascend', 'ban', 'brand', 'corn']
@@ -160,7 +168,8 @@ class TestTriesonode(unittest.TestCase):
         joined = ''.join(words)
 
         for item in self.node.traverse():
-            self.assertIn(item._value, joined)
+            with self.subTest(item = item):
+                self.assertIn(item._value, joined)
 
     def test_traverse_proc(self):
         word = 'apple'
@@ -175,7 +184,8 @@ class TestTriesonode(unittest.TestCase):
             tester = node._value.upper()
 
         for item in self.node.traverse(preproc):
-            self.assertEqual(tester, item._value.upper())
+            with self.subTest(item = item):
+                self.assertEqual(tester, item._value.upper())
 
         # test pre- and post-processing
         tester = ''
@@ -213,7 +223,8 @@ class TestTriesonode(unittest.TestCase):
         chars = 'abcde'
         self.node.add(chars)
         for child in self.node:
-            self.assertIn(child._value, chars)
+            with self.subTest(child = child):
+                self.assertIn(child._value, chars)
 
 if __name__ == '__main__':
     unittest.main()
