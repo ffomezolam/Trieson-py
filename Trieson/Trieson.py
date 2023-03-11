@@ -3,12 +3,13 @@
 Trie class
 """
 
-from typing import Optional
+from typing import Optional, Any
 
 from .Triesonode import Triesonode
 from . import combos
 
 #--- CLASS DEFINITION -------------------------------------------------------
+
 class Trieson():
     """
     Trie Class
@@ -16,7 +17,8 @@ class Trieson():
     get([string])
     """
 
-#--- CONSTRUCTOR ------------------------------------------------------------
+    # CONSTRUCTOR ------------------------------------------------------------
+
     def __init__(self, proc=None, proc_args: list|tuple = [], proc_kwargs: dict = {}):
         self._root = Triesonode()
         self._depth = 0
@@ -27,8 +29,15 @@ class Trieson():
             "kwargs": proc_kwargs
         }
 
-#--- GET/SET/QUERY METHODS --------------------------------------------------
-    def add(self, string, data=True, proc=None, proc_args: list|tuple = [], proc_kwargs: dict = {}):
+    # GET/SET/QUERY METHODS --------------------------------------------------
+
+    def add(self,
+            string: str|list,
+            data: Any = True,
+            proc = None,
+            proc_args: list|tuple = [],
+            proc_kwargs: dict = {}
+    ):
         """
         Add string(s) to Trie, associate with data.
 
@@ -168,7 +177,8 @@ class Trieson():
     def depth(self):
         return self._depth
 
-#--- MAGIC ------------------------------------------------------------------
+    # MAGIC ------------------------------------------------------------------
+
     def __contains__(self, string):
         "Check if string in Trie"
         return self.has(string)
