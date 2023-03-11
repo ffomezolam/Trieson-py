@@ -209,7 +209,7 @@ class Trieson():
 
         if not node: return ''
 
-        if self._debug: print(f'DEBUG-- node: {node._value} {[c._value for c in node._children]}')
+        if self._debug: print(f'DEBUG-- node: {node._value} {[c for c in node._children]}')
 
         node = node.get(weight = weight)
 
