@@ -26,7 +26,7 @@ class Trieson():
 
     # CONSTRUCTOR ------------------------------------------------------------
 
-    def __init__(self, proc=None, proc_args: list|tuple = [], proc_kwargs: dict = {}):
+    def __init__(self, proc=None, proc_args: list|tuple = [], proc_kwargs: dict = {}, *, _debug=False):
         self._root = Triesonode()
         self._depth = 0
         self.dict = set()
@@ -35,6 +35,8 @@ class Trieson():
             "args": proc_args,
             "kwargs": proc_kwargs
         }
+
+        self._debug = _debug
 
     # GET/SET/QUERY METHODS --------------------------------------------------
 
@@ -195,6 +197,8 @@ class Trieson():
 
             # update prefix to find next letter
             prefix = ''.join(word[-_lookahead:])
+
+            if self._debug: print(prefix, next, ''.join(word))
 
         return ''.join(word)
 
