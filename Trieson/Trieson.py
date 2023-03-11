@@ -156,7 +156,11 @@ class Trieson():
 
         return [string + sub for sub in self.substrings(string, limit)]
 
-    def make(self, prefix: Optional[str] = None, weight: float|int = 1, limit: int = 0):
+    def make(self,
+             prefix: Optional[str] = None,
+             weight: float|int = 1,
+             limit: int = 0
+    ):
         "Make a random word"
         word = []
 
@@ -167,10 +171,11 @@ class Trieson():
         node = self._get_node_at_prefix(prefix, proc)
 
         while True:
+            if not node: break
             node = node.get(weight = weight)
             if not node: break
             word.append(node._value)
-            if limit and len(word) >= limit: break
+            if (limit and len(word) >= limit) or node.data: break
 
         return ''.join(word)
 

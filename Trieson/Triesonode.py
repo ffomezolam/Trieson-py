@@ -7,6 +7,7 @@ from __future__ import annotations
 import random
 
 ###--- TRIESONODE CLASS -----------------------------------------------------
+
 class Triesonode:
     """
     Represents a node in the Trieson trie. Contains low-level methods for
@@ -18,6 +19,7 @@ class Triesonode:
     """
 
     #--- CONSTRUCTOR --------------------------------------------------------
+
     def __init__(self, parent:Triesonode = None, value: str = ''):
         self._value = value
         self._count = 1
@@ -26,6 +28,7 @@ class Triesonode:
         self._data = None
 
     #--- GET/SET ------------------------------------------------------------
+
     def add(self, char, chain=True):
         "Add char to children and return added node"
 
@@ -106,6 +109,7 @@ class Triesonode:
         return self._parent
 
     #--- TRAVERSAL ---------------------------------------------------------
+
     def traverse(self, pre=None, post=None):
         "Recursive depth-first traversal over all nodes"
         for node in self._children:
@@ -121,12 +125,14 @@ class Triesonode:
             if post: post(child)
 
     #--- PRIVATE -----------------------------------------------------------
+
     def _inc(self):
         "Increment count by 1"
         self._count += 1
         return self
 
     #--- SPECIAL INFO -------------------------------------------------------
+
     def __len__(self):
         "Number of children"
         return len(self._children)
@@ -140,6 +146,7 @@ class Triesonode:
         return True
 
     #--- SPECIAL ACCESSORS --------------------------------------------------
+
     def __getitem__(self, char):
         "Get child by bracket indexing. Alias for self.get(char)"
         return self.get(char)
@@ -150,6 +157,7 @@ class Triesonode:
             yield child
 
     #--- STRING REPRESENTATION ----------------------------------------------
+
     def __repr__(self):
         "String format"
         return f'Triesonode <{self._value}> x {self._count}, {len(self._children)} children'
