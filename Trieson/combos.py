@@ -17,7 +17,7 @@ def seq_to_end(seq, min=2):
     Example (min 2): abcd -> [abcd, bcd, cd]
     """
     slen = len(seq)
-    return (seq[i:] for i in range(slen) if (slen - i) >= 2)
+    return (seq[i:] for i in range(slen) if (slen - i) >= min)
 
 def none(seq):
     "Return entire sequence as generator."
