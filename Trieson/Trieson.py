@@ -13,8 +13,15 @@ from . import combos
 class Trieson():
     """
     Trie Class
-    add(string, [data], [proc])
-    get([string])
+
+    Constructor Parameters
+    ----------------------
+    proc: callable
+        Optional preprocessing function for added strings
+    proc_args: list|tuple
+        Arguments for preprocessing function
+    proc_kwargs: dict
+        Keyword arguments for preprocessing function
     """
 
     # CONSTRUCTOR ------------------------------------------------------------
@@ -93,6 +100,7 @@ class Trieson():
 
     def has_prefix(self, prefix):
         "Check for any sequence of characters in Trie"
+
         return bool(self._get_node_at_prefix(prefix))
 
     def has(self, string):
@@ -160,7 +168,7 @@ class Trieson():
     def make(self,
              prefix: Optional[str] = None,
              weight: float|int = 1,
-             lookahead: int = 1,
+             lookahead: int = 0,
              limit: int = 0,
              *,
              end_char: str = ''
@@ -172,32 +180,22 @@ class Trieson():
         # get starting node
         node = self._get_node_at_prefix(prefix, lambda n: word.append(n._value))
 
-        while True:
-            # get new starting node
-            node = self._get_node_at_prefix(prefix)
-
-            print(prefix, word)
-
-            # stop if can't get node
-            if not node: break
-
-            # get next node by weighted random selection
-            node = node.get(weight = weight)
-
-            # stop if can't get node
-            if not node: break
+        while node:
+            # make next character
+            next = self.make_next(prefix, weight)
 
             # add character to word
-            word.append(node._value)
+            word.append(next)
 
             # stop if we've reached limit or ending character
-            if (limit and len(word) >= limit) or node._value == end_char: break
+            if (limit and len(word) >= limit) or next == end_char: break
 
             # lookahead can't be more than current word size
-            _lookahead = lookahead if len(word) > lookahead else len(word)
+            _lookahead = lookahead if lookahead and len(word) > lookahead else len(word)
 
             # update prefix to find next letter
             prefix = ''.join(word[-_lookahead:])
+            print(prefix, next, word)
 
         return ''.join(word)
 
@@ -206,9 +204,11 @@ class Trieson():
 
         node = self._get_node_at_prefix(prefix)
 
+        if not node: return ''
+
         node = node.get(weight = weight)
 
-        return node._value
+        return node._value if node else ''
 
     def depth(self):
         return self._depth
