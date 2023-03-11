@@ -17,14 +17,18 @@ class Trieson():
     """
 
 #--- CONSTRUCTOR ------------------------------------------------------------
-    def __init__(self, proc=None):
+    def __init__(self, proc=None, proc_args: list|tuple = [], proc_kwargs: dict = {}):
         self._root = Triesonode()
         self._depth = 0
         self.dict = set()
-        self._proc = proc or combos.seq_to_end
+        self._proc = {
+            "proc": proc or combos.seq_to_end,
+            "args": proc_args,
+            "kwargs": proc_kwargs
+        }
 
 #--- GET/SET/QUERY METHODS --------------------------------------------------
-    def add(self, string, data=True, proc=None):
+    def add(self, string, data=True, proc=None, proc_args: list|tuple = [], proc_kwargs: dict = {}):
         """
         Add string(s) to Trie, associate with data.
 
@@ -32,8 +36,11 @@ class Trieson():
         will preprocess each string, and must return a string or list
         of strings to add.
         """
+
         # default proc if none
-        proc = self._proc if not proc else proc
+        proc = proc or self._proc['proc']
+        proc_args = proc_args or self._proc['args']
+        proc_kwargs = proc_kwargs or self._proc['kwargs']
 
         # convert to list input
         if type(string) == str: string = [string]
@@ -42,7 +49,8 @@ class Trieson():
         for s in string: self.dict.add(s)
 
         # apply proc function
-        string = [ps for s in string for ps in proc(s)]
+        string = [ps for s in string for ps in proc(s, *proc_args, **proc_kwargs)]
+        print(string, proc, proc_kwargs)
 
         # add characters for each string
         for s in string:
