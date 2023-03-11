@@ -195,7 +195,6 @@ class Trieson():
 
             # update prefix to find next letter
             prefix = ''.join(word[-_lookahead:])
-            print(prefix, next, word)
 
         return ''.join(word)
 
