@@ -160,24 +160,44 @@ class Trieson():
     def make(self,
              prefix: Optional[str] = None,
              weight: float|int = 1,
-             limit: int = 0
+             lookahead: int = 1,
+             limit: int = 0,
+             *,
+             end_char: str = ''
     ):
         "Make a random word"
 
         word = []
 
-        def proc(node):
-            nonlocal word
-            word.append(node._value)
-
-        node = self._get_node_at_prefix(prefix, proc)
+        # get starting node
+        node = self._get_node_at_prefix(prefix, lambda n: word.append(n._value))
 
         while True:
+            # get new starting node
+            node = self._get_node_at_prefix(prefix)
+
+            print(prefix, word)
+
+            # stop if can't get node
             if not node: break
+
+            # get next node by weighted random selection
             node = node.get(weight = weight)
+
+            # stop if can't get node
             if not node: break
+
+            # add character to word
             word.append(node._value)
-            if (limit and len(word) >= limit) or node._data: break
+
+            # stop if we've reached limit or ending character
+            if (limit and len(word) >= limit) or node._value == end_char: break
+
+            # lookahead can't be more than current word size
+            _lookahead = lookahead if len(word) > lookahead else len(word)
+
+            # update prefix to find next letter
+            prefix = ''.join(word[-_lookahead:])
 
         return ''.join(word)
 
