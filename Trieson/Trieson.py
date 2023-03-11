@@ -198,7 +198,7 @@ class Trieson():
             # update prefix to find next letter
             prefix = ''.join(word[-_lookahead:])
 
-            if self._debug: print(prefix, next, ''.join(word))
+            if self._debug: print("DEBUG:", prefix, ''.join(word))
 
         return ''.join(word)
 
