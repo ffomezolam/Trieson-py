@@ -209,5 +209,48 @@ class TestTrieson(unittest.TestCase):
             with self.subTest(s = s):
                 self.assertFalse(self.trie.has(s[1:-2]))
 
+    def test_get_node_at_prefix(self):
+        pass
+
+    def test_has_prefix(self):
+        pass
+
+    def test_has(self):
+        pass
+
+    def test_get(self):
+        pass
+
+    def test_substrings(self):
+        pass
+
+    def test_match(self):
+        pass
+
+    def test_make(self):
+        pass
+
+    def test_make_next(self):
+        pass
+
+    def test_depth(self):
+        pass
+
+    def test_magic(self):
+        with self.subTest("contains"):
+            pass
+
+        with self.subTest("getitem"):
+            pass
+
+        with self.subTest("setitem"):
+            pass
+
+        with self.subTest("len"):
+            pass
+
+        with self.subTest("iter"):
+            pass
+
 if __name__ == '__main__':
     unittest.main()

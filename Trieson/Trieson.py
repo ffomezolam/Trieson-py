@@ -163,6 +163,7 @@ class Trieson():
              limit: int = 0
     ):
         "Make a random word"
+
         word = []
 
         def proc(node):
@@ -179,6 +180,15 @@ class Trieson():
             if (limit and len(word) >= limit) or node._data: break
 
         return ''.join(word)
+
+    def make_next(self, prefix: Optional[str] = None, weight: float|int = 1):
+        "Get next random character after prefix"
+
+        node = self._get_node_at_prefix(prefix)
+
+        node = node.get(weight = weight)
+
+        return node._value
 
     def depth(self):
         return self._depth
