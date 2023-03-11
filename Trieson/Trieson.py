@@ -3,6 +3,8 @@
 Trie class
 """
 
+from typing import Optional
+
 from .Triesonode import Triesonode
 from . import combos
 
@@ -138,7 +140,7 @@ class Trieson():
 
         return [string + sub for sub in self.substrings(string, limit)]
 
-    def make(self, prefix = None, weight = 1):
+    def make(self, prefix: Optional[str] = None, weight: float|int = 1, limit: int = 0):
         "Make a random word"
         word = []
 
@@ -152,6 +154,7 @@ class Trieson():
             node = node.get(weight = weight)
             if not node: break
             word.append(node._value)
+            if limit and len(word) >= limit: break
 
         return ''.join(word)
 

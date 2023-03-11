@@ -66,11 +66,12 @@ Gets `limit` or all possible word matches for prefix `string`. For example, if
 'apple', 'apiary', and 'aptitude' were added to the trie, match('ap') would
 return all three items, and match('app'), would return 'apple'.
 
-### `make([prefix], [weight])`
+### `make([prefix], [weight], [limit])`
 
 The fun part. Makes a random word starting at end of `prefix` weighting the
 character choices by the number of times they appeared after the previous
-letter when "training" the trie.
+letter when "training" the trie. Can limit size of generated word with the
+`limit` parameter.
 
 Internally, each character in the trie keeps track of the number of times it
 has been added to it's parent. For example, adding 'apple' and 'apiary' would
