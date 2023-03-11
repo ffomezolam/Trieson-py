@@ -180,9 +180,9 @@ class Trieson():
         word = []
 
         # get starting node
-        node = self._get_node_at_prefix(prefix, lambda n: word.append(n._value))
+        next = self._get_node_at_prefix(prefix, lambda n: word.append(n._value))
 
-        while node:
+        while next:
             # make next character
             next = self.make_next(prefix, weight)
 
