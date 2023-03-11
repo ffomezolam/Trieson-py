@@ -70,6 +70,7 @@ class Trieson():
                 depth += 1
 
             node.data(data)
+
             if depth > self._depth: self._depth = depth
 
         return self
@@ -175,7 +176,7 @@ class Trieson():
             node = node.get(weight = weight)
             if not node: break
             word.append(node._value)
-            if (limit and len(word) >= limit) or node.data: break
+            if (limit and len(word) >= limit) or node._data: break
 
         return ''.join(word)
 
