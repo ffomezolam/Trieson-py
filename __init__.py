@@ -1,1 +1,1 @@
-from Trieson import Trieson
+from .Trieson import Trieson
