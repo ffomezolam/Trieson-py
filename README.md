@@ -27,18 +27,23 @@ Have lots of fun!
 
 ## Methods
 
-### Trieson([proc]) (constructor)
+### Trieson([proc], [proc_args], [proc_kwargs]) (constructor)
 
 The `proc` parameter is for an optional preprocessing function that will be
 applied to any string added to the trie. By default it will create a list of
 all combinations of sequential letters in the string to the end of the string.
 For example: 'apple' will become ['apple', 'pple', 'ple', 'le']
 
-### add(string, [data], [proc])
+### add(string, [data], [proc], [proc_args], [proc_kwargs])
 
 Adds the string `string` to the trie, applying `proc` to the string before
 adding. The `data` parameter supplies any data to attach to the final character
 in the string and a true value specifies that this character ends a string.
+
+The `proc_args` and `proc_kwargs` parameters allow passing of arguments to the
+`proc` function when it is called. In the default case passing `{'min': 3}` to
+`proc_kwargs` will change the default behavior of proc to leave a minimum
+string length of 3.
 
 ### `has_prefix(prefix)`
 
