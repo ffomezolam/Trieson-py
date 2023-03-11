@@ -50,7 +50,6 @@ class Trieson():
 
         # apply proc function
         string = [ps for s in string for ps in proc(s, *proc_args, **proc_kwargs)]
-        print(string, proc, proc_kwargs)
 
         # add characters for each string
         for s in string:
