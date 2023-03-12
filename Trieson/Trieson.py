@@ -26,7 +26,7 @@ class Trieson():
 
     # CONSTRUCTOR ------------------------------------------------------------
 
-    def __init__(self, proc=None, proc_args: list|tuple = [], proc_kwargs: dict = {}, *, _debug=False):
+    def __init__(self, proc = None, proc_args: list|tuple = [], proc_kwargs: dict = {}, *, _debug = False):
         self._root = Triesonode()
         self._depth = 0
         self.dict = set()
@@ -173,7 +173,7 @@ class Trieson():
              lookahead: int = 0,
              limit: int = 0,
              *,
-             end_char: str = ''
+             end_char: Optional[str] = ''
     ):
         "Make a random word"
 
