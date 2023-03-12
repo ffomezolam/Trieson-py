@@ -173,6 +173,7 @@ class Trieson():
              lookahead: int = 0,
              limit: int = 0,
              *,
+             min_lookahead: int = 0,
              end_char: Optional[str] = ''
     ):
         "Make a random word"
@@ -183,20 +184,25 @@ class Trieson():
         next = self._get_node_at_prefix(prefix, lambda n: word.append(n._value))
 
         while next:
-            # make next character
-            next = self.make_next(prefix, weight)
+            # lookahead can't be more than current word size
+            _lookahead = lookahead if lookahead and len(word) > lookahead else len(word)
+            if not min_lookahead or min_lookahead > _lookahead:
+                min_lookahead = _lookahead
 
-            # add character to word
-            word.append(next)
+            for l in range(_lookahead, min_lookaheadi - 1, -1):
+                # update prefix to find next letter
+                prefix = ''.join(word[-l:])
+
+                # make next character
+                next = self.make_next(prefix, weight)
+
+                if next:
+                    # add character to word
+                    word.append(next)
+                    break
 
             # stop if we've reached limit or ending character
             if (limit and len(word) >= limit) or next == end_char: break
-
-            # lookahead can't be more than current word size
-            _lookahead = lookahead if lookahead and len(word) > lookahead else len(word)
-
-            # update prefix to find next letter
-            prefix = ''.join(word[-_lookahead:])
 
             if self._debug: print(f'DEBUG-- prefix: {prefix} -- word: {"".join(word)}')
 
