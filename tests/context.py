@@ -8,5 +8,5 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 # import used modules
 import Trieson
-from Trieson.Triesonode import Triesonode
+from Trieson.Triesonode import Triesonode, TriesonodeTerminator
 from Trieson import combos

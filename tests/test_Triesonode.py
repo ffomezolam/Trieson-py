@@ -1,4 +1,4 @@
-from context import Triesonode
+from context import Triesonode, TriesonodeTerminator
 
 import unittest
 
@@ -144,10 +144,18 @@ class TestTriesonode(unittest.TestCase):
             n.data(data[ix])
 
         for ix, char in enumerate(chars):
-            with self.subTest(ix = ix, char = char):
+            with self.subTest("should set data", ix = ix, char = char):
                 n = self.node.get(char)
                 self.assertIsInstance(n, Triesonode)
                 self.assertEqual(n.data(), data[ix])
+
+        for ix, char in enumerate(chars):
+            with self.subTest("passing a function should change data"):
+                n = self.node.get(char)
+                def inc(n):
+                    return int(n) + 1
+                n.data(inc)
+                self.assertEqual(n.data(), int(data[ix]) + 1)
 
     def test_children(self):
         chars = 'abccde'
@@ -240,6 +248,35 @@ class TestTriesonode(unittest.TestCase):
         for child in self.node:
             with self.subTest(child = child):
                 self.assertIn(child._value, chars)
+
+class TestTriesonodeTerminator(unittest.TestCase):
+    def setUp(self):
+        self.node = Triesonode(None, 'a')
+
+    def test_terminate(self):
+        self.node.terminate('boo!')
+        with self.subTest("Should have a None key"):
+            self.assertIn(None, self.node._children)
+
+        with self.subTest("Should set data"):
+            self.assertEqual(self.node._children[None].data(), 'boo!')
+
+        with self.subTest("Should increment count"):
+            self.assertEqual(self.node._children[None]._count, 1)
+
+        self.node.terminate('bah')
+
+        with self.subTest("Should increment count again"):
+            self.assertEqual(self.node._children[None]._count, 2)
+
+        with self.subTest("Should replace data"):
+            self.assertEqual(self.node._children[None].data(), 'bah')
+
+    def test_is_terminator(self):
+        self.node.terminate('boo!')
+
+        self.assertFalse(self.node.is_terminator())
+        self.assertTrue(self.node._children[None].is_terminator())
 
 if __name__ == '__main__':
     unittest.main()

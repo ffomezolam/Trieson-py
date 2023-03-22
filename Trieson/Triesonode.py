@@ -53,15 +53,16 @@ class Triesonode:
         # ... or set chain to False to get same node back
         return self
 
-    def terminate(self, data = True):
+    def terminate(self, data = None):
         "Add a terminating node to children"
 
         # if no terminating node, create one, else update count and data
         if None not in self._children:
-            self._children[None] = TriesonodeTerminator(data)
+            self._children[None] = TriesonodeTerminator(self, data)
         else:
             self._children[None]._count += 1
-            self._children[None].data(data)
+            if data:
+                self._children[None].data(data)
 
     def get(self, char: Optional[str] = None, weight: int|float = 1,
             *,
@@ -121,7 +122,7 @@ class Triesonode:
 
         if isinstance(data, FunctionType):
             # call function on data
-            data(self._data)
+            self._data = data(self._data)
         else:
             # set data to new value
             self._data = data
@@ -214,6 +215,9 @@ class TriesonodeTerminator(Triesonode):
         self.data(data)
 
     def add(self):
+        pass
+
+    def terminate(self, unused):
         pass
 
     def get(self):
