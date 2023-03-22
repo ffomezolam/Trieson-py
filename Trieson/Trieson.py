@@ -81,7 +81,7 @@ class Trieson():
                 node = node.add(c)
                 depth += 1
 
-            node.data(data)
+            node.terminate(data)
 
             if depth > self._depth: self._depth = depth
 

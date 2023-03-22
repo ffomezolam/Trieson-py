@@ -52,6 +52,16 @@ class Triesonode:
         # ... or set chain to False to get same node back
         return self
 
+    def terminate(self, data = True):
+        "Add a terminating node to children"
+
+        # if no terminating node, create one, else update count and data
+        if None not in self._children:
+            self._children[None] = TriesonodeTerminator(data)
+        else:
+            self._children[None]._count += 1
+            self._children[None].data(data)
+
     def get(self, char: Optional[str] = None, weight: int|float = 1,
             *,
             exclude_chars: Optional[str|list|tuple|set] = ''
@@ -103,16 +113,24 @@ class Triesonode:
         "Get or set data for node"
 
         if data is None: return self._data
+
         self._data = data
+
         return self
 
     def children(self):
         "Get child nodes as list"
+
         return list(self._children.values())
 
     def parent(self):
         "Return parent node; will return None if root"
+
         return self._parent
+
+    def is_terminator(self):
+        "Check if this is a terminating node"
+        return isinstance(self, TriesonodeTerminator)
 
     #--- TRAVERSAL ---------------------------------------------------------
 
@@ -155,7 +173,7 @@ class Triesonode:
         for child in self._children.values():
             yield child
 
-    def __call__():
+    def __call__(self):
         "call returns value"
         return self._value
 
@@ -168,3 +186,52 @@ class Triesonode:
     def __str__(self):
         "Pretty string format"
         return f'Triesonode <{self._value}> x {self._count}, {len(self._children)} children'
+
+###--- TRIESONODETERMINATOR CLASS -------------------------------------------
+
+class TriesonodeTerminator(Triesonode):
+    """
+    Represents a terminating node in a trie.
+
+    A terminating node has no children and no value, but can hold data.
+    """
+
+    def __init__(self, parent: Triesonode = None, data = True):
+        self._count = 1
+        self._parent = parent
+        self._data = None
+
+        self.data(data)
+
+    def add(self):
+        pass
+
+    def get(self):
+        pass
+
+    def has(self):
+        pass
+
+    def children(self):
+        pass
+
+    def traverse(self):
+        pass
+
+    def __len__(self):
+        pass
+
+    def __contains__(self, unused):
+        pass
+
+    def __getitem__(self, unused):
+        pass
+
+    def __iter__(self):
+        pass
+
+    def __call__(self):
+        return None
+
+    def __str__(self):
+        return f'TriesonodeTerminator data: {self._data}'
