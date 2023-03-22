@@ -1,4 +1,4 @@
-from context import Triesonode, TriesonodeTerminator
+from context import Triesonode, TriesonodeTerminator, TERMINATOR
 
 import unittest
 
@@ -255,28 +255,37 @@ class TestTriesonodeTerminator(unittest.TestCase):
 
     def test_terminate(self):
         self.node.terminate('boo!')
-        with self.subTest("Should have a None key"):
-            self.assertIn(None, self.node._children)
+        with self.subTest("Should have a terminating key"):
+            self.assertIn(TERMINATOR, self.node._children)
 
         with self.subTest("Should set data"):
-            self.assertEqual(self.node._children[None].data(), 'boo!')
+            self.assertEqual(self.node._children[TERMINATOR].data(), 'boo!')
 
         with self.subTest("Should increment count"):
-            self.assertEqual(self.node._children[None]._count, 1)
+            self.assertEqual(self.node._children[TERMINATOR]._count, 1)
 
         self.node.terminate('bah')
 
         with self.subTest("Should increment count again"):
-            self.assertEqual(self.node._children[None]._count, 2)
+            self.assertEqual(self.node._children[TERMINATOR]._count, 2)
 
         with self.subTest("Should replace data"):
-            self.assertEqual(self.node._children[None].data(), 'bah')
+            self.assertEqual(self.node._children[TERMINATOR].data(), 'bah')
 
     def test_is_terminator(self):
         self.node.terminate('boo!')
 
         self.assertFalse(self.node.is_terminator())
-        self.assertTrue(self.node._children[None].is_terminator())
+        self.assertTrue(self.node._children[''].is_terminator())
+
+    def test_get_terminator(self):
+        self.node.terminate('boring')
+
+        with self.subTest("Should return TriesonodeTerminator instance"):
+            self.assertIsInstance(self.node.get_terminator(), TriesonodeTerminator)
+
+        with self.subTest("Returned node should have correct data"):
+            self.assertEqual(self.node.get_terminator().data(), 'boring')
 
 if __name__ == '__main__':
     unittest.main()

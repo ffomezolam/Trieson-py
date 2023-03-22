@@ -8,6 +8,8 @@ from typing import Optional
 from types import FunctionType
 import random
 
+TERMINATOR = ''
+
 ###--- TRIESONODE CLASS -----------------------------------------------------
 
 class Triesonode:
@@ -57,12 +59,12 @@ class Triesonode:
         "Add a terminating node to children"
 
         # if no terminating node, create one, else update count and data
-        if None not in self._children:
-            self._children[None] = TriesonodeTerminator(self, data)
+        if TERMINATOR not in self._children:
+            self._children[TERMINATOR] = TriesonodeTerminator(self, data)
         else:
-            self._children[None]._count += 1
+            self._children[TERMINATOR]._count += 1
             if data:
-                self._children[None].data(data)
+                self._children[TERMINATOR].data(data)
 
     def get(self, char: Optional[str] = None, weight: int|float = 1,
             *,
@@ -143,6 +145,10 @@ class Triesonode:
         "Check if this is a terminating node"
         return isinstance(self, TriesonodeTerminator)
 
+    def get_terminator(self):
+        "Get terminator child if exists or None"
+        return self[''] if '' in self else None
+
     #--- TRAVERSAL ---------------------------------------------------------
 
     def traverse(self, pre=None, post=None):
@@ -166,7 +172,7 @@ class Triesonode:
         return len(self._children)
 
     def __contains__(self, char):
-        "See if char in children. Alias for self.has(char)"
+        "See if char in children"
         return self.has(char)
 
     def __bool__(self):
