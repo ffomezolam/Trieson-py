@@ -5,6 +5,7 @@ Exports Trie Node class
 
 from __future__ import annotations
 from typing import Optional
+from types import FunctionType
 import random
 
 ###--- TRIESONODE CLASS -----------------------------------------------------
@@ -110,11 +111,20 @@ class Triesonode:
         else: return char in self._children and self._children[char]._count >= n
 
     def data(self, data=None):
-        "Get or set data for node"
+        """
+        Get or set data for node
+
+        Pass a function to manipulate existing data.
+        """
 
         if data is None: return self._data
 
-        self._data = data
+        if isinstance(data, FunctionType):
+            # call function on data
+            data(self._data)
+        else:
+            # set data to new value
+            self._data = data
 
         return self
 
