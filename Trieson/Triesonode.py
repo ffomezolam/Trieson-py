@@ -145,9 +145,13 @@ class Triesonode:
         "Check if this is a terminating node"
         return isinstance(self, TriesonodeTerminator)
 
+    def has_terminator(self):
+        "True if terminating node is a child"
+        return TERMINATOR in self
+
     def get_terminator(self):
         "Get terminator child if exists or None"
-        return self[''] if '' in self else None
+        return self[TERMINATOR] if TERMINATOR in self else None
 
     #--- TRAVERSAL ---------------------------------------------------------
 
