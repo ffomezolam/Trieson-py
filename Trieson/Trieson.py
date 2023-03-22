@@ -5,6 +5,8 @@ Trie class
 
 from typing import Optional, Any
 
+import logging
+
 from .Triesonode import Triesonode
 from . import combos
 
@@ -36,7 +38,8 @@ class Trieson():
             "kwargs": proc_kwargs
         }
 
-        self._debug = _debug
+        # set logging level based on _debug parameter
+        if _debug: logging.getLogger(__name__).setLevel(logging.DEBUG)
 
     # GET/SET/QUERY METHODS --------------------------------------------------
 
@@ -171,55 +174,77 @@ class Trieson():
              prefix: Optional[str] = None,
              weight: float|int = 1,
              lookahead: int = 0,
-             limit: int = 0,
              *,
-             min_lookahead: int = 0,
-             end_char: Optional[str] = ''
+             max_len: int = 0, # maximum word length
+             min_len: int = 0, # minimum word length
+             strict: bool = True, # whether to be strict with endings
+             fail_str: str = '!', # string to prepend if strict and failed
+             end_char: Optional[str] = '' # character to interpret as an ending
     ):
         "Make a random word"
 
+        # max_len can't be less than min_len unless it's 0
+        if max_len and max_len < min_len:
+            max_len, min_len = min_len, max_len # swap them
+
         word = []
+        ends = set()
 
         # get starting node
-        next = self._get_node_at_prefix(prefix, lambda n: word.append(n._value))
+        node = self._get_node_at_prefix(prefix, lambda n: word.append(n._value))
+        while node:
+            # 1. set lookahead - can't be more than word length
+            lookahead = lookahead if lookahead and len(word) > lookahead else len(word)
 
-        while next:
-            # lookahead can't be more than current word size
-            _lookahead = lookahead if lookahead and len(word) > lookahead else len(word)
-            if not min_lookahead or min_lookahead > _lookahead:
-                min_lookahead = _lookahead
+            # 2a. update prefix to find next letter
+            prefix = ''.join(word[-lookahead:])
 
-            for l in range(_lookahead, min_lookaheadi - 1, -1):
-                # update prefix to find next letter
-                prefix = ''.join(word[-l:])
+            # 2b. get next node, skipping characters if necessary to prevent
+            # stop condition
+            node = self._get_node_at_prefix(prefix)
 
-                # make next character
-                next = self.make_next(prefix, weight)
+            if not node:
+                # prefix doesn't have children, try larger lookahead
+                if lookahead == len(word):
+                    # can't get any more characters from the trie
+                    s = ''.join(word)
 
-                if next:
-                    # add character to word
-                    word.append(next)
+                    if strict: return fail_str + s
+
+                    return s
+
+                else:
+                    lookahead += 1
+                    continue
+
+            node = node.get(weight = weight, exclude_chars = ends)
+
+            # 2c. check if node exists
+            # if so, add character to word
+            if node:
+                # add character to word
+                word.append(node._value)
+
+            logging.debug(f'MAKE() added {node._value} (prefix {prefix}, word {"".join(word)}')
+
+            # 3. check for stop condition
+
+            # 3a. word exceeds max-length
+            if max_len and len(word) >= max_len: break
+
+            # 3b. end_char or data node was reached
+            if (end_char and word[-1] == end_char) or node._data:
+                logging.debug(f'MAKE() stop condition reached: {end_char if word[-1] == end_char else node._data}')
+
+                # word length OK so can end
+                if len(word) >= min_len:
                     break
 
-            # stop if we've reached limit or ending character
-            if (limit and len(word) >= limit) or next == end_char: break
-
-            if self._debug: print(f'DEBUG-- prefix: {prefix} -- word: {"".join(word)}')
+                # word length needs to be longer
+                # remove last letter and add to exclusion set
+                ends.add(word.pop())
 
         return ''.join(word)
-
-    def make_next(self, prefix: Optional[str] = None, weight: float|int = 1):
-        "Get next random character after prefix"
-
-        node = self._get_node_at_prefix(prefix)
-
-        if not node: return ''
-
-        if self._debug: print(f'DEBUG-- node: {node._value} {[c for c in node._children]}')
-
-        node = node.get(weight = weight)
-
-        return node._value if node else ''
 
     def depth(self):
         return self._depth

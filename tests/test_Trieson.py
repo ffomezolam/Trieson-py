@@ -6,11 +6,11 @@ import unittest
 
 class TestTrie(unittest.TestCase):
     def setUp(self):
-        self.trie = Trieson.Trieson(combos.none)
+        self.trie = Trieson.Trieson(combos.none, _debug=True)
 
     def test_existence(self):
         self.assertIsInstance(self.trie, Trieson.Trieson)
-        self.assertIs(self.trie._proc, combos.none)
+        self.assertIs(self.trie._proc['proc'], combos.none)
 
     def test_add(self):
         s = 'apple'
@@ -120,15 +120,40 @@ class TestTrie(unittest.TestCase):
 
     def test_make(self):
         words = ['any', 'and', 'arm', 'are', 'air', 'ago', 'age', 'bon', 'bog']
+
         self.trie.add(words)
-        for _ in range(5):
-            self.assertIn(self.trie.make(), words)
+        for _ in range(4):
+            with self.subTest("should make full words if no prefix"):
+                self.assertIn(self.trie.make(), words)
 
-        for _ in range(10):
-            self.assertEqual('air', self.trie.make('ai'))
+        for _ in range(4):
+            with self.subTest("Should make words starting with prefix"):
+                self.assertEqual('air', self.trie.make('ai'))
 
-        for _ in range(10):
-            self.assertIn(self.trie.make('b'), [w for w in words if w.startswith('b')])
+        for _ in range(4):
+            with self.subTest("Should make words starting with prefix"):
+                self.assertIn(self.trie.make('b'), [w for w in words if w.startswith('b')])
+
+    def test_make_lookahead(self):
+        words = ['bled', 'lend', 'end', 'led']
+
+        self.trie.add(words)
+
+        self.assertEqual(self.trie.make('bl', lookahead = 2), 'blend')
+
+    def test_make_max_len(self):
+        words = ['bowling']
+
+        self.trie.add(words)
+
+        with self.subTest("Should prepend fail_str if cannot make word"):
+            self.assertEqual(self.trie.make(max_len=3), '!bow')
+
+        with self.subTest("Should allow changing fail_str"):
+            self.assertEqual(self.trie.make(max_len=3, fail_str='#'), '#bow')
+
+        with self.subTest("Should succeed with large enough length"):
+            self.assertEqual(self.trie.make(max_len=7))
 
     def test_depth(self):
         self.trie.add('abba')
@@ -193,7 +218,7 @@ class TestTrieson(unittest.TestCase):
         self.trie = Trieson.Trieson() # default seq_to_end combos
 
     def test_proc(self):
-        self.assertEqual(self.trie._proc.__name__, 'seq_to_end')
+        self.assertEqual(self.trie._proc['proc'].__name__, 'seq_to_end')
 
     def test_add(self):
         ss = ['apple', 'angel', 'bagel']

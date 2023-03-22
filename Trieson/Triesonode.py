@@ -4,6 +4,7 @@ Exports Trie Node class
 """
 
 from __future__ import annotations
+from typing import Optional
 import random
 
 ###--- TRIESONODE CLASS -----------------------------------------------------
@@ -20,7 +21,7 @@ class Triesonode:
 
     #--- CONSTRUCTOR --------------------------------------------------------
 
-    def __init__(self, parent:Triesonode = None, value: str = ''):
+    def __init__(self, parent: Triesonode = None, value: str = ''):
         self._value = value
         self._count = 1
         self._children = {}
@@ -41,7 +42,7 @@ class Triesonode:
 
         # if char already exists, increment count, else add new node
         if char in self._children:
-            self._children[char]._inc()
+            self._children[char]._count += 1
         else:
             self._children[char] = Triesonode(self, char)
 
@@ -51,10 +52,15 @@ class Triesonode:
         # ... or set chain to False to get same node back
         return self
 
-    def get(self, char=None, weight=1):
+    def get(self, char: Optional[str] = None, weight: int|float = 1,
+            *,
+            exclude_chars: Optional[str|list|tuple|set] = ''
+    ):
         """
         Return specified child node if exists.
         If no child node specified, get a random node by relative child counts.
+
+        Can exclude children by passing optional `exclude_chars` argument containing an iterable of characters to exclude.
         """
 
         # no children? return None
@@ -62,19 +68,19 @@ class Triesonode:
 
         # if no char provided, generate one selected from children
         if char == None:
-            children = list(self._children.values())
+            # get children that aren't excluded
+            children = [childnode for childnode in self._children.values() if childnode._value not in exclude_chars]
+
+            # return None if all are excluded or no children
+            if not children: return None
 
             # create weights for random selection
-            weights = [child._count ** weight for child in children]
+            weights = [child._count ** weight for child in children if child._value not in exclude_chars]
 
             # select by weighted choice
             char = random.choices(children, weights)[0]._value
 
-        # return node or None
-        try:
-            return self._children[char]
-        except KeyError:
-            return None
+        return self._children[char] if char in self._children else None
 
     def has(self, char=None, n=0):
         """
@@ -124,13 +130,6 @@ class Triesonode:
             # postprocess if exists
             if post: post(child)
 
-    #--- PRIVATE -----------------------------------------------------------
-
-    def _inc(self):
-        "Increment count by 1"
-        self._count += 1
-        return self
-
     #--- SPECIAL INFO -------------------------------------------------------
 
     def __len__(self):
@@ -156,8 +155,16 @@ class Triesonode:
         for child in self._children.values():
             yield child
 
+    def __call__():
+        "call returns value"
+        return self._value
+
     #--- STRING REPRESENTATION ----------------------------------------------
 
     def __repr__(self):
         "String format"
+        return f'{self}'
+
+    def __str__(self):
+        "Pretty string format"
         return f'Triesonode <{self._value}> x {self._count}, {len(self._children)} children'

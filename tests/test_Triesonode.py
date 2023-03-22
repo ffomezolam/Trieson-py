@@ -120,6 +120,21 @@ class TestTriesonode(unittest.TestCase):
         ratio = (successes / 4) / tries
         self.assertGreaterEqual(ratio, test_threshold)
 
+    def test_get_with_exclude(self):
+        self.node.add('123')
+
+        with self.subTest("excluding all should return None"):
+            self.assertIsNone(self.node.get(exclude_chars = '123'))
+
+        with self.subTest("excluding some should not return them"):
+            self.assertEqual(self.node.get(exclude_chars = '12')._value, '3')
+
+        with self.subTest("should work with a set"):
+            self.assertEqual(self.node.get(exclude_chars = {'1', '3'})._value, '2')
+
+        with self.subTest("should work with a list"):
+            self.assertEqual(self.node.get(exclude_chars = ['2','3'])._value, '1')
+
     def test_data(self):
         chars = 'abcde'
         data = '54321'
