@@ -117,10 +117,7 @@ class Trieson():
             if not node:
                 return False
 
-        if node.data() is not None:
-            return True
-        else:
-            return False
+        return node.has_terminator()
 
     def get(self, string=None):
         "Get data associated with string"
@@ -132,10 +129,10 @@ class Trieson():
 
         if not node: return None
 
-        # only full string has data
-        if not node.data(): return None
+        # only return full strings
+        if not node.has_terminator(): return None
 
-        return node.data()
+        return node.get_terminator().data()
 
     def substrings(self, prefix=None, limit=None):
         "Collect and return all substrings"
@@ -166,6 +163,7 @@ class Trieson():
 
     def match(self, string, limit=None):
         "Get possible matches to string, max <limit>"
+
         if not self.has_prefix(string): return [string]
 
         return [string + sub for sub in self.substrings(string, limit)]
@@ -232,8 +230,8 @@ class Trieson():
             # 3a. word exceeds max-length
             if max_len and len(word) >= max_len: break
 
-            # 3b. end_char or data node was reached
-            if (end_char and word[-1] == end_char) or node._data:
+            # 3b. end_char or terminating node was reached
+            if (end_char and word[-1] == end_char) or node.is_terminator():
                 logging.debug(f'MAKE() stop condition reached: {end_char if word[-1] == end_char else node._data}')
 
                 # word length OK so can end
@@ -271,3 +269,13 @@ class Trieson():
         "Iterate through all strings in Trie"
         for s in self.substrings():
             yield s
+
+    # STRING -----------------------------------------------------------------
+
+    def __repr__(self):
+        "String representation"
+        return f'Trieson()'
+
+    def __str__(self):
+        "Pretty string representation"
+        return f'Trieson - depth {self.depth()}'

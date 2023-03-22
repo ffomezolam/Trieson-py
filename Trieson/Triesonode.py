@@ -218,6 +218,7 @@ class TriesonodeTerminator(Triesonode):
     """
 
     def __init__(self, parent: Triesonode = None, data = True):
+        self._value = ''
         self._count = 1
         self._parent = parent
         self._data = None
