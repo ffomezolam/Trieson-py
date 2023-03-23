@@ -306,7 +306,7 @@ class Trieson():
             # 3a. word equals or exceeds max-length
             if max_len and len(word) >= max_len:
                 # if word equal max-length and we are at terminating node, end
-                if len(word) == max_len and (node.is_terminator() or node.has_terminator()) or (end_char and node._value == end_char):
+                if len(word) == max_len and node.is_terminator() or (end_char and node._value == end_char):
                     break
 
                 if len(word) > max_len:
