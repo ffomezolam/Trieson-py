@@ -287,5 +287,11 @@ class TestTriesonodeTerminator(unittest.TestCase):
         with self.subTest("Returned node should have correct data"):
             self.assertEqual(self.node.get_terminator().data(), 'boring')
 
+    def test_has_terminator(self):
+        self.assertFalse(self.node.has_terminator())
+
+        self.node.terminate('a')
+        self.assertTrue(self.node.has_terminator())
+
 if __name__ == '__main__':
     unittest.main()

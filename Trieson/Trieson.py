@@ -5,7 +5,10 @@ Trie class
 
 from typing import Optional, Any
 
+import os # for environment variable access
 import logging
+
+if os.getenv('DEBUG'): logging.getLogger(__name__).setLevel(logging.DEBUG)
 
 from .Triesonode import Triesonode
 from . import combos
@@ -28,7 +31,7 @@ class Trieson():
 
     # CONSTRUCTOR ------------------------------------------------------------
 
-    def __init__(self, proc = None, proc_args: list|tuple = [], proc_kwargs: dict = {}, *, _debug = False):
+    def __init__(self, proc = None, proc_args: list|tuple = [], proc_kwargs: dict = {}):
         self._root = Triesonode()
         self._depth = 0
         self.dict = set()
@@ -37,9 +40,6 @@ class Trieson():
             "args": proc_args,
             "kwargs": proc_kwargs
         }
-
-        # set logging level based on _debug parameter
-        if _debug: logging.getLogger(__name__).setLevel(logging.DEBUG)
 
     # GET/SET/QUERY METHODS --------------------------------------------------
 
@@ -134,7 +134,7 @@ class Trieson():
 
         return node.get_terminator().data()
 
-    def substrings(self, prefix=None, limit=None):
+    def substrings(self, prefix = None, limit = None):
         "Collect and return all substrings"
         string = ''
         collection = []
@@ -145,16 +145,21 @@ class Trieson():
         # preprocessing function to add letter to string and check for word
         def preproc(node):
             nonlocal string, collection, count
+
+            # add character to string (terminating character is '')
             string += node._value
 
-            if node.data():
+            if node.is_terminator():
+                # if we've reached a terminating node, add string to collection
                 collection.append(string)
                 count += 1
 
         # postprocessing function to remove letter from string
         def postproc(node):
-            nonlocal string
-            string = string[:-1]
+            # only process if we're not at a terminating node
+            if not node.is_terminator():
+                nonlocal string
+                string = string[:-1]
 
         for _ in root.traverse(preproc, postproc):
             if limit and count >= limit: break
@@ -190,34 +195,40 @@ class Trieson():
 
         # get starting node
         node = self._get_node_at_prefix(prefix, lambda n: word.append(n._value))
+
+        lookahead = [lookahead for _ in range(3)]
+
         while node:
             # 1. set lookahead - can't be more than word length
-            lookahead = lookahead if lookahead and len(word) > lookahead else len(word)
+            lookahead[2] = lookahead[1] if (lookahead[1] and len(word) > lookahead[1]) else len(word)
 
             # 2a. update prefix to find next letter
-            prefix = ''.join(word[-lookahead:])
+            prefix = ''.join(word[-lookahead[2]:])
 
-            # 2b. get next node, skipping characters if necessary to prevent
-            # stop condition
+            # 2b. get node corresponding to last char of prefix
             node = self._get_node_at_prefix(prefix)
 
             if not node:
-                # prefix doesn't have children, try larger lookahead
-                if lookahead == len(word):
+                # prefix doesn't have children
+                # increase lookahead to see if we can get a hit
+
+                if lookahead[2] >= len(word):
                     # can't get any more characters from the trie
-                    s = ''.join(word)
 
-                    if strict: return fail_str + s
+                    if strict: word.insert(0, fail_str)
 
-                    return s
+                    break
 
                 else:
-                    lookahead += 1
+                    lookahead[1] += 1
                     continue
 
+            lookahead[1] = lookahead[0]
+
+            # 2c. get next node
             node = node.get(weight = weight, exclude_chars = ends)
 
-            # 2c. check if node exists
+            # 2d. check if node exists
             # if so, add character to word
             if node:
                 # add character to word
@@ -227,12 +238,25 @@ class Trieson():
 
             # 3. check for stop condition
 
-            # 3a. word exceeds max-length
-            if max_len and len(word) >= max_len: break
+            # 3a. word equals or exceeds max-length
+            if max_len and len(word) >= max_len:
+                # if word equal max-length and we are at terminating node, end
+                if len(word) == max_len and (node.is_terminator() or node.has_terminator()) or (end_char and node._value == end_char):
+                    break
+
+                if len(word) > max_len:
+                    # word is longer than max-length and no terminating node
+                    # force word to length and end
+                    word.pop()
+
+                    if strict:
+                        word.insert(0, fail_str)
+
+                    break
 
             # 3b. end_char or terminating node was reached
             if (end_char and word[-1] == end_char) or node.is_terminator():
-                logging.debug(f'MAKE() stop condition reached: {end_char if word[-1] == end_char else node._data}')
+                logging.debug(f'MAKE() stop condition reached: {end_char if word[-1] == end_char else node.data()}')
 
                 # word length OK so can end
                 if len(word) >= min_len:

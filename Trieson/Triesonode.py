@@ -104,7 +104,7 @@ class Triesonode:
         If no char specified, get list of all child keys.
         """
 
-        if not char: return list(self._children.keys())
+        if char is None: return list(self._children.keys())
 
         # standard return
         if not n: return char in self._children
@@ -240,8 +240,8 @@ class TriesonodeTerminator(Triesonode):
     def children(self):
         pass
 
-    def traverse(self):
-        pass
+    def traverse(self, unused_pre, unused_post):
+        yield self
 
     def __len__(self):
         pass

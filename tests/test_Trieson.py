@@ -2,11 +2,14 @@ from context import Trieson
 from context import Triesonode
 from context import combos
 
+import os
 import unittest
+
+os.environ['DEBUG'] = '1'
 
 class TestTrie(unittest.TestCase):
     def setUp(self):
-        self.trie = Trieson.Trieson(combos.none, _debug=True)
+        self.trie = Trieson.Trieson(combos.none)
 
     def test_existence(self):
         self.assertIsInstance(self.trie, Trieson.Trieson)
@@ -135,7 +138,7 @@ class TestTrie(unittest.TestCase):
                 self.assertIn(self.trie.make('b'), [w for w in words if w.startswith('b')])
 
     def test_make_lookahead(self):
-        words = ['bled', 'lend', 'end', 'led']
+        words = ['ble', 'len', 'end']
 
         self.trie.add(words)
 
@@ -153,7 +156,10 @@ class TestTrie(unittest.TestCase):
             self.assertEqual(self.trie.make(max_len=3, fail_str='#'), '#bow')
 
         with self.subTest("Should succeed with large enough length"):
-            self.assertEqual(self.trie.make(max_len=7))
+            self.assertEqual(self.trie.make(max_len=7), 'bowling')
+
+        with self.subTest("Should not fail if not in strict mode"):
+            self.assertEqual(self.trie.make(max_len=4, strict=False), 'bowl')
 
     def test_depth(self):
         self.trie.add('abba')
@@ -228,10 +234,10 @@ class TestTrieson(unittest.TestCase):
 
         for s in ss:
             for ix in range(0, -2):
-                with self.subTest(s = s, ix = ix):
+                with self.subTest("Trie should contain substrings to end", s = s, ix = ix):
                     self.assertTrue(self.trie.has(s[ix:]))
 
-            with self.subTest(s = s):
+            with self.subTest("All substrings should go to end of word", s = s, t=s[1:-2]):
                 self.assertFalse(self.trie.has(s[1:-2]))
 
     def test_get_node_at_prefix(self):
