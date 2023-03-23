@@ -314,8 +314,7 @@ class Trieson():
                     # force word to length and end
                     word.pop()
 
-                    if strict:
-                        word.insert(0, fail_str)
+                    if strict: word.insert(0, fail_str)
 
                     break
 
