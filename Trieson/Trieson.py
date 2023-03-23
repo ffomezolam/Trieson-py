@@ -8,8 +8,6 @@ from typing import Optional, Any
 import os # for environment variable access
 import logging
 
-if os.getenv('DEBUG'): logging.getLogger(__name__).setLevel(logging.DEBUG)
-
 from .Triesonode import Triesonode
 from . import combos
 
@@ -245,6 +243,7 @@ class Trieson():
 
         # get starting node
         node = self._get_node_at_prefix(prefix, lambda n: word.append(n._value))
+        logging.debug(f'START: prefix {node._value}')
 
         lookahead = [lookahead for _ in range(3)]
 
@@ -261,6 +260,7 @@ class Trieson():
             if not node:
                 # prefix doesn't have children
                 # increase lookahead to see if we can get a hit
+                logging.debug(f'no children for prefix {"".join(word)} with lookahead {lookahead}')
 
                 if lookahead[2] >= len(word):
                     # can't get any more characters from the trie
@@ -283,17 +283,20 @@ class Trieson():
             if node and not node.is_terminator():
                 # add character to word
                 word.append(node._value)
-                logging.debug(f'added {node._value} (prefix {prefix}, word {word}')
+                logging.debug(f'added {node._value} for prefix {prefix}')
 
             # 3. check for stop condition
 
             # 3a. node is None - could not get any children
             if not node:
+                logging.debug(f'no node for prefix {prefix} with used ends {ends}')
                 if not word:
                     # there are no options from root - return empty
                     if strict:
                         word = [fail_str] + (cache or word)
                         break
+
+                    logging.debug(f'\tusing cached word {"".join(cache)}')
 
                     word = cache
                     break
@@ -301,6 +304,7 @@ class Trieson():
                 else:
                     # can backtrack and try again
                     ends.add(word.pop())
+                    logging.debug(f'\tbacktracking to {"".join(word)}')
                     continue
 
             # 3a. word equals or exceeds max-length
