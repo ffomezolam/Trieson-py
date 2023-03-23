@@ -181,24 +181,74 @@ class Trieson():
              max_len: int = 0, # maximum word length
              min_len: int = 0, # minimum word length
              strict: bool = True, # whether to be strict with endings
-             fail_str: str = '!', # string to prepend if strict and failed
-             end_char: Optional[str] = '' # character to interpret as an ending
+             fail_str: str = '*', # string to prepend if strict and failed
+             end_char: str = '' # character to interpret as an ending
     ):
-        "Make a random word"
+        """
+        Make a random word.
+
+        Uses node weights to weight the generator towards higher-frequency
+        nodes. The `weight` parameter allows the degree of this weighing to
+        be adjusted.
+
+        Positional Parameters
+        =====================
+
+        prefix: [str]
+            Optional prefix string to use. Make will generate text starting
+            after the prefix. No prefix will start from the trie root.
+
+        weight: [float|int] (default 1)
+            Adjust the weights. 1 is normal weighting. 0 is all weights equal.
+            2 is double weighting. Etc.
+
+        lookahead: [int] (default 0)
+            Number of characters to use when choosing next node.
+            This essentially acts as a `prefix` designator for the algorithm.
+            At each step in the process, the algorithm will use the last
+            `lookahead` number of characters in the generated word to select
+            the next character. A `lookahead` of 0 will always use the whole
+            set of generated characters, effectively only generating words from
+            the original set of inputs.
+
+        Keyword Parameters
+        ==================
+
+        max_len: [int] (default 0)
+            Maximum generated word length. A 0 here acts as no maximum.
+
+        min_len: [int] (default 0)
+            Minimum generated word length. A 0 here acts as no minimum.
+
+        strict: [bool] (default True)
+            Whether to be strict with word endings. If the generator reaches
+            `max_len` without getting a terminating node, it will return the
+            word with `fail_str` prepended if `strict` is `True`.
+
+        fail_str: [str] (default '*')
+            The string to prepend to words upon failure if `strict` is `True`.
+
+        end_char: [str]
+            The algorithm will interpret the character specified in the
+            `end_char` parameter as a terminating character, and will treat it
+            identically to the standard word-terminating node. By default
+            `end_char` is disabled.
+        """
 
         # max_len can't be less than min_len unless it's 0
         if max_len and max_len < min_len:
             max_len, min_len = min_len, max_len # swap them
 
-        word = []
-        ends = set()
+        word = [] # stores generated characters
+        ends = set() # stores characters to exclude on search
+        cache = [] # stores a copy of longest word in case of min_len failure
 
         # get starting node
         node = self._get_node_at_prefix(prefix, lambda n: word.append(n._value))
 
         lookahead = [lookahead for _ in range(3)]
 
-        while node:
+        while True:
             # 1. set lookahead - can't be more than word length
             lookahead[2] = lookahead[1] if (lookahead[1] and len(word) > lookahead[1]) else len(word)
 
@@ -230,13 +280,28 @@ class Trieson():
 
             # 2d. check if node exists
             # if so, add character to word
-            if node:
+            if node and not node.is_terminator():
                 # add character to word
                 word.append(node._value)
-
-            logging.debug(f'MAKE() added {node._value} (prefix {prefix}, word {"".join(word)}')
+                logging.debug(f'added {node._value} (prefix {prefix}, word {word}')
 
             # 3. check for stop condition
+
+            # 3a. node is None - could not get any children
+            if not node:
+                if not word:
+                    # there are no options from root - return empty
+                    if strict:
+                        word = [fail_str] + (cache or word)
+                        break
+
+                    word = cache
+                    break
+
+                else:
+                    # can backtrack and try again
+                    ends.add(word.pop())
+                    continue
 
             # 3a. word equals or exceeds max-length
             if max_len and len(word) >= max_len:
@@ -256,13 +321,17 @@ class Trieson():
 
             # 3b. end_char or terminating node was reached
             if (end_char and word[-1] == end_char) or node.is_terminator():
-                logging.debug(f'MAKE() stop condition reached: {end_char if word[-1] == end_char else node.data()}')
+                logging.debug(f'stop condition reached: {end_char if word[-1] == end_char else node.data()}')
 
                 # word length OK so can end
-                if len(word) >= min_len:
-                    break
+                if len(word) >= min_len: break
 
                 # word length needs to be longer
+                logging.debug(f'{word} not long enough with min_len {min_len}')
+
+                # cache word if longest so far
+                if len(word) > len(cache): cache = word[:]
+
                 # remove last letter and add to exclusion set
                 ends.add(word.pop())
 

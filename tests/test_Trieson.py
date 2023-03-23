@@ -150,16 +150,41 @@ class TestTrie(unittest.TestCase):
         self.trie.add(words)
 
         with self.subTest("Should prepend fail_str if cannot make word"):
-            self.assertEqual(self.trie.make(max_len=3), '!bow')
+            self.assertEqual(self.trie.make(max_len=3, strict=True), '*bow')
 
         with self.subTest("Should allow changing fail_str"):
-            self.assertEqual(self.trie.make(max_len=3, fail_str='#'), '#bow')
+            self.assertEqual(self.trie.make(max_len=3, fail_str='#', strict=True), '#bow')
 
         with self.subTest("Should succeed with large enough length"):
-            self.assertEqual(self.trie.make(max_len=7), 'bowling')
+            self.assertEqual(self.trie.make(max_len=7, strict=True), 'bowling')
 
         with self.subTest("Should not fail if not in strict mode"):
             self.assertEqual(self.trie.make(max_len=4, strict=False), 'bowl')
+
+    def test_make_min_len(self):
+        words = ['box']
+
+        self.trie.add(words)
+
+        with self.subTest("Should be ok if word above min_len"):
+            self.assertEqual(self.trie.make(min_len=3, strict=True), 'box')
+
+        with self.subTest("Should fail if cannot reach min_len"):
+            self.assertEqual(self.trie.make(min_len=4, strict=True), '*box')
+
+        with self.subTest("Should return as is if not strict"):
+            self.assertEqual(self.trie.make(min_len=4, strict=False), 'box')
+
+    def test_make_end_char(self):
+        words = ['bandages']
+
+        self.trie.add(words)
+
+        with self.subTest("Should return ban with end_char n"):
+            self.assertEqual(self.trie.make(end_char='n'), 'ban')
+
+        with self.subTest("Should return bandag with end_char g"):
+            self.assertEqual(self.trie.make(end_char='g'), 'bandag')
 
     def test_depth(self):
         self.trie.add('abba')
