@@ -124,11 +124,12 @@ a 1-count.
 - `min_len [int]`: Minimum word length. Set to 0 to ignore. Default `0`.
 
 - `strict [bool]`: Whether to be strict with word endings. Strict mode will
-    prefix any failed attempt to find a complete word with a character as
-    specified in `fail_str`. Default is `True`.
+    return an empty string if the algorithm fails to generate a word within the
+    parameters specified. If `fail_str` is specified, strict mode will return
+    the failed generated string prefixed with `fail_str`. Default is `True`.
 
 - `fail_str [str]`: The string prefix on a generation failure when `strict` is
-    `True`. Default is `'*'`.
+    `True`. Default is `''`.
 
 - `end_char [str]`: An optional character that will be interpreted by the
     algorithm as a terminating character. It will be treated the same as a word
