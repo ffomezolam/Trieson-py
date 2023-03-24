@@ -143,7 +143,7 @@ class Triesonode:
 
     def is_terminator(self):
         "Check if this is a terminating node"
-        return isinstance(self, TriesonodeTerminator)
+        return False
 
     def has_terminator(self):
         "True if terminating node is a child"
@@ -206,7 +206,7 @@ class Triesonode:
 
     def __str__(self):
         "Pretty string format"
-        return f'Triesonode <{self._value}> x {self._count}, {len(self._children)} children'
+        return f'Triesonode <{self._value}> x {self._count}, {len(self._children)} children: {list(self._children.keys())}'
 
 ###--- TRIESONODETERMINATOR CLASS -------------------------------------------
 
@@ -222,6 +222,7 @@ class TriesonodeTerminator(Triesonode):
         self._count = 1
         self._parent = parent
         self._data = None
+        self._children = []
 
         self.data(data)
 
@@ -242,6 +243,9 @@ class TriesonodeTerminator(Triesonode):
 
     def traverse(self, unused_pre, unused_post):
         yield self
+
+    def is_terminator(self):
+        return True
 
     def __len__(self):
         pass

@@ -137,22 +137,32 @@ class TestTrie(unittest.TestCase):
             with self.subTest("Should make words starting with prefix"):
                 self.assertIn(self.trie.make('b'), [w for w in words if w.startswith('b')])
 
+        with self.subTest("Should return empty string if prefix doesn't exist"):
+            self.assertEqual('', self.trie.make('z'))
+
     def test_make_lookahead(self):
         words = ['ble', 'len', 'end']
 
         self.trie.add(words)
 
-        self.assertEqual(self.trie.make('bl', lookahead = 2), 'blend')
+        with self.subTest("Lookahead should look ahead"):
+            self.assertEqual(self.trie.make('bl', lookahead = 2), 'blend')
+
+        with self.subTest("Should not allow excessive lookahead"):
+            self.assertEqual('ble', self.trie.make('bl', lookahead=5))
+
+        with self.subTest("Should adjust lookahead if fails"):
+            self.assertEqual('blend', self.trie.make('b', lookahead=1))
 
     def test_make_max_len(self):
         words = ['bowling']
 
         self.trie.add(words)
 
-        with self.subTest("Should prepend fail_str if cannot make word"):
-            self.assertEqual(self.trie.make(max_len=3, strict=True), '*bow')
+        with self.subTest("Should return empty string if strict and cannot make word"):
+            self.assertEqual(self.trie.make(max_len=3, strict=True), '')
 
-        with self.subTest("Should allow changing fail_str"):
+        with self.subTest("fail_str should return prepended word on failure"):
             self.assertEqual(self.trie.make(max_len=3, fail_str='#', strict=True), '#bow')
 
         with self.subTest("Should succeed with large enough length"):
@@ -170,10 +180,24 @@ class TestTrie(unittest.TestCase):
             self.assertEqual(self.trie.make(min_len=3, strict=True), 'box')
 
         with self.subTest("Should fail if cannot reach min_len"):
-            self.assertEqual(self.trie.make(min_len=4, strict=True), '*box')
+            self.assertEqual(self.trie.make(min_len=4, strict=True), '')
 
         with self.subTest("Should return as is if not strict"):
             self.assertEqual(self.trie.make(min_len=4, strict=False), 'box')
+
+    def test_make_min_max_len(self):
+        words = ['box', 'boxer', 'bomb', 'bomber']
+
+        self.trie.add(words)
+
+        with self.subTest("Should be ok if applicable word in trie"):
+            self.assertEqual(self.trie.make(min_len=4, max_len=4), 'bomb')
+
+        with self.subTest("Min and max should be min and max"):
+            self.assertIn(self.trie.make(min_len=5, max_len=4), ['bomb', 'boxer'])
+
+        with self.subTest("Should return empty string if strict and cannot make word"):
+            self.assertEqual(self.trie.make(min_len=7, max_len=9), '')
 
     def test_make_end_char(self):
         words = ['bandages']

@@ -172,14 +172,14 @@ class Trieson():
         return [string + sub for sub in self.substrings(string, limit)]
 
     def make(self,
-             prefix: Optional[str] = None,
+             prefix: str = '',
              weight: float|int = 1,
              lookahead: int = 0,
              *,
              max_len: int = 0, # maximum word length
              min_len: int = 0, # minimum word length
              strict: bool = True, # whether to be strict with endings
-             fail_str: str = '*', # string to prepend if strict and failed
+             fail_str: str = '', # if set, prepend string instead of returning empty
              end_char: str = '' # character to interpret as an ending
     ):
         """
@@ -220,11 +220,12 @@ class Trieson():
 
         strict: [bool] (default True)
             Whether to be strict with word endings. If the generator reaches
-            `max_len` without getting a terminating node, it will return the
-            word with `fail_str` prepended if `strict` is `True`.
+            `max_len` without getting a terminating node, it will return an
+            empty string if `strict` is `True`.
 
-        fail_str: [str] (default '*')
-            The string to prepend to words upon failure if `strict` is `True`.
+        fail_str: [str] (default '')
+            If provided, instead of failing with an empty string, the failing
+            string will be returned with `fail_str` prepended.
 
         end_char: [str]
             The algorithm will interpret the character specified in the
@@ -237,108 +238,117 @@ class Trieson():
         if max_len and max_len < min_len:
             max_len, min_len = min_len, max_len # swap them
 
-        word = [] # stores generated characters
-        ends = set() # stores characters to exclude on search
-        cache = [] # stores a copy of longest word in case of min_len failure
+        # characters will be stores as dict in form:
+        # { "char": <the character>, "tried": <children accessed from this character> }
+
+        # helper function to generate word entries
+        def char(char):
+            return { "char": char, "tried": set() }
+
+        # helper function to join characters
+        def join_word(word_list):
+            return ''.join([w['char'] for w in word_list])
+
+        backtrack_count = 0
+        plist = [] # stores prefix characters
+        word = [char('')] # stores generated characters - starts with a dummy character
+        cache = '' # stores a copy of word in case of length failure
 
         # get starting node
-        node = self._get_node_at_prefix(prefix, lambda n: word.append(n._value))
-        logging.debug(f'START: prefix {node._value}')
+        node = self._get_node_at_prefix(prefix, lambda n: plist.append(char(n._value)))
 
-        lookahead = [lookahead for _ in range(3)]
+        # return if prefix doesn't exist in trie
+        if not node: return ''
+
+        logging.debug(f'START: prefix {join_word(plist)}')
+
+        lookahead = [lookahead for _ in range(2)]
 
         while True:
             # 1. set lookahead - can't be more than word length
-            lookahead[2] = lookahead[1] if (lookahead[1] and len(word) > lookahead[1]) else len(word)
+            if lookahead[1] and len(plist) + len(word) + 1 < lookahead[1]:
+                lookahead[1] = len(plist) + len(word) + 1
 
             # 2a. update prefix to find next letter
-            prefix = ''.join(word[-lookahead[2]:])
+            prefix = join_word((plist + word)[-lookahead[1]:])
 
             # 2b. get node corresponding to last char of prefix
             node = self._get_node_at_prefix(prefix)
 
             if not node:
-                # prefix doesn't have children
+                # prefix does not exist in trie
                 # increase lookahead to see if we can get a hit
-                logging.debug(f'no children for prefix {"".join(word)} with lookahead {lookahead}')
+                # needed in event we have i.e. one string in trie, proc
+                # combos.none, and lookahead less than string length
 
-                if lookahead[2] >= len(word):
+                logging.debug(f'* no children for prefix {"".join(word)} with lookahead {lookahead}')
+
+                if lookahead[1] >= len(word):
                     # can't get any more characters from the trie
-
-                    if strict: word.insert(0, fail_str)
+                    if strict: return ''
 
                     break
 
                 else:
+                    # increase lookahead
                     lookahead[1] += 1
-                    continue
 
-            lookahead[1] = lookahead[0]
+                    continue
+            else:
+                # reset lookahead
+                lookahead[1] = lookahead[0]
 
             # 2c. get next node
-            node = node.get(weight = weight, exclude_chars = ends)
+            logging.debug(f'getting next char with prefix "{prefix}" and tried characters {word[-1]["tried"] if word else set()}')
+
+            node = node.get(weight = weight, exclude_chars = word[-1]["tried"])
 
             # 2d. check if node exists
-            # if so, add character to word
             if node and not node.is_terminator():
-                # add character to word
-                word.append(node._value)
+                # exists so add character to word
+                if word: word[-1]["tried"].add(node._value)
+                word.append(char(node._value))
                 logging.debug(f'added {node._value} for prefix {prefix}')
+            elif not node:
+                # node not existing means we've exhausted all options
+                # so remove character in hopes that previous character will
+                # have more options
+                word.pop()
+                continue
 
             # 3. check for stop condition
+            if node.is_terminator() or (end_char and node._value == end_char):
+                # at terminating node - check if we can end here
+                logging.debug(f'reached terminating node at prefix {prefix}')
 
-            # 3a. node is None - could not get any children
-            if not node:
-                logging.debug(f'no node for prefix {prefix} with used ends {ends}')
-                if not word:
-                    # there are no options from root - return empty
-                    if strict:
-                        word = [fail_str] + (cache or word)
-                        break
+                # 3a. check if word is too small
+                if min_len and (len(word) - 1 + len(plist)) < min_len:
+                    logging.debug(f'* word "{"".join([c["char"] for c in word])}" is too short')
 
-                    logging.debug(f'\tusing cached word {"".join(cache)}')
+                    # add to cache if larger than previous cached word
+                    if len(cache) < len(word) - 1:
+                        cache = join_word(word)
+                        logging.debug(f'\t> cached "{cache}"')
 
-                    word = cache
-                    break
-
-                else:
-                    # can backtrack and try again
-                    ends.add(word.pop())
-                    logging.debug(f'\tbacktracking to {"".join(word)}')
+                    # remove character from word to try another
+                    word.pop()
                     continue
 
-            # 3a. word equals or exceeds max-length
-            if max_len and len(word) >= max_len:
-                # if word equal max-length and we are at terminating node, end
-                if len(word) == max_len and node.is_terminator() or (end_char and node._value == end_char):
-                    break
+                # 3b. check if word is too big
+                if max_len and (len(word) - 1 + len(plist)) > max_len:
+                    logging.debug(f'* word "{"".join([c["char"] for c in word])}" is too long')
 
-                if len(word) > max_len:
-                    # word is longer than max-length and no terminating node
-                    # force word to length and end
-                    word.pop()
+                    # add to cache if smaller than previous cached word
+                    if len(cache) > len(word) - 1:
+                        cache = join_word(word)
+                        logging.debug(f'\t> cached "{cache}"')
 
-                    if strict: word.insert(0, fail_str)
+                    # shorten word to 1 less than max length to try another character
+                    word = word[:max_len - len(plist) - 1]
+                    continue
 
-                    break
-
-            # 3b. end_char or terminating node was reached
-            if (end_char and word[-1] == end_char) or node.is_terminator():
-                logging.debug(f'stop condition reached: {end_char if word[-1] == end_char else node.data()}')
-
-                # word length OK so can end
-                if len(word) >= min_len: break
-
-                # word length needs to be longer
-                logging.debug(f'{word} not long enough with min_len {min_len}')
-
-                # cache word if longest so far
-                if len(word) > len(cache): cache = word[:]
-
-                # remove last letter and add to exclusion set
-                ends.add(word.pop())
-
-        return ''.join(word)
+                # return word
+                return join_word(word)
 
     def depth(self):
         return self._depth
