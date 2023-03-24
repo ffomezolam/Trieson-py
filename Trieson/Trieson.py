@@ -5,7 +5,6 @@ Trie class
 
 from typing import Optional, Any
 
-import os # for environment variable access
 import logging
 
 from .Triesonode import Triesonode
@@ -234,6 +233,9 @@ class Trieson():
             `end_char` is disabled.
         """
 
+        # handle instance where there are no entries in trie
+        if not len(self._root): return ''
+
         # max_len can't be less than min_len unless it's 0
         if max_len and max_len < min_len:
             max_len, min_len = min_len, max_len # swap them
@@ -265,12 +267,23 @@ class Trieson():
         lookahead = [lookahead for _ in range(2)]
 
         while True:
+            # 0. word list needs at least one character otherwise no way to
+            #    generate a complete word
+            if not word:
+                logging.debug(f'no further options for generation with min_len {min_len} and max_len {max_len}')
+
+                if strict:
+                    if fail_str and cache: return fail_str + prefix + cache
+                    return ''
+                else:
+                    return prefix + cache
+
             # 1. set lookahead - can't be more than word length
             if lookahead[1] and len(plist) + len(word) + 1 < lookahead[1]:
                 lookahead[1] = len(plist) + len(word) + 1
 
             # 2a. update prefix to find next letter
-            prefix = join_word((plist + word)[-lookahead[1]:])
+            prefix = join_word((plist + word))[-lookahead[1]:]
 
             # 2b. get node corresponding to last char of prefix
             node = self._get_node_at_prefix(prefix)
@@ -281,16 +294,21 @@ class Trieson():
                 # needed in event we have i.e. one string in trie, proc
                 # combos.none, and lookahead less than string length
 
-                logging.debug(f'* no children for prefix {"".join(word)} with lookahead {lookahead}')
+                logging.debug(f'* no children for prefix {join_word(word)} with lookahead {lookahead}')
 
-                if lookahead[1] >= len(word):
+                if lookahead[1] >= len(word) - 1 + len(plist):
                     # can't get any more characters from the trie
-                    if strict: return ''
+                    if strict:
+                        if fail_str and cache: return fail_str + prefix + cache
+                        return ''
+                    else:
+                        return prefix + cache
 
                     break
 
                 else:
                     # increase lookahead
+                    logging.debug(f'\tincreasing effective lookahead from {lookahead[1]} to {lookahead[1] + 1}')
                     lookahead[1] += 1
 
                     continue
@@ -301,20 +319,26 @@ class Trieson():
             # 2c. get next node
             logging.debug(f'getting next char with prefix "{prefix}" and tried characters {word[-1]["tried"] if word else set()}')
 
-            node = node.get(weight = weight, exclude_chars = word[-1]["tried"])
+            node = node.get(weight = weight, exclude_chars = word[-1]["tried"] if word else set())
 
             # 2d. check if node exists
             if node and not node.is_terminator():
                 # exists so add character to word
                 if word: word[-1]["tried"].add(node._value)
                 word.append(char(node._value))
-                logging.debug(f'added {node._value} for prefix {prefix}')
+                logging.debug(f'> added {node._value} for prefix {prefix}')
             elif not node:
                 # node not existing means we've exhausted all options
                 # so remove character in hopes that previous character will
                 # have more options
                 word.pop()
                 continue
+
+            # cache word if we've reached max length
+            # TODO: wrap this into stop condition check
+            if max_len and len(word) - 1 + len(plist) == max_len:
+                cache = join_word(word)
+                logging.debug(f'\t> cached "{cache}"')
 
             # 3. check for stop condition
             if node.is_terminator() or (end_char and node._value == end_char):
@@ -326,7 +350,7 @@ class Trieson():
                     logging.debug(f'* word "{"".join([c["char"] for c in word])}" is too short')
 
                     # add to cache if larger than previous cached word
-                    if len(cache) < len(word) - 1:
+                    if len(cache) < len(word) - 1 + len(plist):
                         cache = join_word(word)
                         logging.debug(f'\t> cached "{cache}"')
 
@@ -339,16 +363,15 @@ class Trieson():
                     logging.debug(f'* word "{"".join([c["char"] for c in word])}" is too long')
 
                     # add to cache if smaller than previous cached word
-                    if len(cache) > len(word) - 1:
+                    if not cache or len(word) - 1 + len(plist) < len(cache):
                         cache = join_word(word)
                         logging.debug(f'\t> cached "{cache}"')
 
                     # shorten word to 1 less than max length to try another character
-                    word = word[:max_len - len(plist) - 1]
+                    word = word[:max_len - len(plist)]
                     continue
 
-                # return word
-                return join_word(word)
+                return join_word(plist + word)
 
     def depth(self):
         return self._depth

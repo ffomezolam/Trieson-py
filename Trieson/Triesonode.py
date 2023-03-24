@@ -198,10 +198,6 @@ class Triesonode:
         "call returns value"
         return self._value
 
-    def __bool__(self):
-        "Boolean access"
-        return True if self._children else False
-
     #--- STRING REPRESENTATION ----------------------------------------------
 
     def __repr__(self):

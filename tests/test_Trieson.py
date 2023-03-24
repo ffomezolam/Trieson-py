@@ -5,7 +5,7 @@ from context import combos
 import os
 import unittest
 
-os.environ['DEBUG'] = '1'
+import logging
 
 class TestTrie(unittest.TestCase):
     def setUp(self):
