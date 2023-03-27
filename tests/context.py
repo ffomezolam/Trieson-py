@@ -10,3 +10,4 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import Trieson
 from Trieson.Triesonode import Triesonode, TriesonodeTerminator, TERMINATOR
 from Trieson import combos
+import Trie
