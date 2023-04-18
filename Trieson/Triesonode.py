@@ -4,7 +4,7 @@ Exports Trie Node class
 """
 
 from __future__ import annotations
-from typing import Optional
+from typing import Optional, Any
 from types import FunctionType
 import random
 
@@ -24,12 +24,14 @@ class Triesonode:
 
     #--- CONSTRUCTOR --------------------------------------------------------
 
-    def __init__(self, parent: Triesonode = None, value: str = ''):
+    # TODO: implement data setter on a per-node basis allowing data to be set
+    # for each item in the trie
+    def __init__(self, parent: Triesonode = None, value: str = '', data: Any = None):
         self._value = value
         self._count = 1
         self._children = {}
         self._parent = parent
-        self._data = None
+        self._data = data
 
     #--- GET/SET ------------------------------------------------------------
 

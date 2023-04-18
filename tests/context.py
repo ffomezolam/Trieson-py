@@ -7,7 +7,9 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # import used modules
-import Trieson
+from Trieson.Trieson import Trieson
 from Trieson.Triesonode import Triesonode, TriesonodeTerminator, TERMINATOR
+from Trieson.Triechery import Triechery
+from Trieson.Triecherynode import Triecherynode, is_primitive, as_key
 from Trieson import combos
 import Trie
