@@ -25,6 +25,7 @@ class Trieson():
     proc_kwargs: dict
         Keyword arguments for preprocessing function
     """
+    # TODO: maybe `on_add` event method - for logging additional data?
 
     # CONSTRUCTOR ------------------------------------------------------------
 
@@ -42,7 +43,9 @@ class Trieson():
 
     def add(self,
             string: str|list,
+            # TODO: extend to allow per-node data
             data: Any = True,
+            *,
             proc = None,
             proc_args: list|tuple = [],
             proc_kwargs: dict = {}
@@ -179,7 +182,7 @@ class Trieson():
              min_len: int = 0, # minimum word length
              strict: bool = True, # whether to be strict with endings
              fail_str: str = '', # if set, prepend string instead of returning empty
-             end_char: str = '' # character to interpret as an ending
+             end_chars: str = '' # character to interpret as an ending
     ):
         """
         Make a random word.
@@ -226,11 +229,11 @@ class Trieson():
             If provided, instead of failing with an empty string, the failing
             string will be returned with `fail_str` prepended.
 
-        end_char: [str]
+        end_chars: [str]
             The algorithm will interpret the character specified in the
-            `end_char` parameter as a terminating character, and will treat it
+            `end_chars` parameter as a terminating character, and will treat it
             identically to the standard word-terminating node. By default
-            `end_char` is disabled.
+            `end_chars` is disabled.
         """
 
         # handle instance where there are no entries in trie
@@ -334,23 +337,30 @@ class Trieson():
                 word.pop()
                 continue
 
-            # cache word if we've reached max length
+            # store current word length
+            wlen = len(word) - 1 + len(plist)
+
+            # if we've reached max length end if possible else cache word
             # TODO: wrap this into stop condition check
-            if max_len and len(word) - 1 + len(plist) == max_len:
+            if max_len and wlen == max_len:
                 cache = join_word(word)
                 logging.debug(f'\t> cached "{cache}"')
 
             # 3. check for stop condition
-            if node.is_terminator() or (end_char and node._value == end_char):
+            if max_len and wlen == max_len and node.has_terminator():
+                # reached maximum length and have a full word - we can end here
+                return join_word(plist + word)
+
+            elif node.is_terminator() or (end_chars and node._value in end_chars):
                 # at terminating node - check if we can end here
                 logging.debug(f'reached terminating node at prefix {prefix}')
 
                 # 3a. check if word is too small
-                if min_len and (len(word) - 1 + len(plist)) < min_len:
+                if min_len and wlen < min_len:
                     logging.debug(f'* word "{"".join([c["char"] for c in word])}" is too short')
 
                     # add to cache if larger than previous cached word
-                    if len(cache) < len(word) - 1 + len(plist):
+                    if len(cache) < wlen:
                         cache = join_word(word)
                         logging.debug(f'\t> cached "{cache}"')
 
@@ -359,11 +369,11 @@ class Trieson():
                     continue
 
                 # 3b. check if word is too big
-                if max_len and (len(word) - 1 + len(plist)) > max_len:
+                if max_len and wlen > max_len:
                     logging.debug(f'* word "{"".join([c["char"] for c in word])}" is too long')
 
                     # add to cache if smaller than previous cached word
-                    if not cache or len(word) - 1 + len(plist) < len(cache):
+                    if not cache or wlen < len(cache):
                         cache = join_word(word)
                         logging.debug(f'\t> cached "{cache}"')
 
@@ -371,6 +381,7 @@ class Trieson():
                     word = word[:max_len - len(plist)]
                     continue
 
+                logging.debug(f'made word "{join_word(plist + word)}"')
                 return join_word(plist + word)
 
     def depth(self):
