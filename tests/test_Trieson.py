@@ -9,10 +9,10 @@ import logging
 
 class TestTrie(unittest.TestCase):
     def setUp(self):
-        self.trie = Trieson.Trieson(combos.none)
+        self.trie = Trieson(combos.none)
 
     def test_existence(self):
-        self.assertIsInstance(self.trie, Trieson.Trieson)
+        self.assertIsInstance(self.trie, Trieson)
         self.assertIs(self.trie._proc['proc'], combos.none)
 
     def test_add(self):
@@ -205,10 +205,14 @@ class TestTrie(unittest.TestCase):
         self.trie.add(words)
 
         with self.subTest("Should return ban with end_char n"):
-            self.assertEqual(self.trie.make(end_char='n'), 'ban')
+            self.assertEqual(self.trie.make(end_chars='n'), 'ban')
 
         with self.subTest("Should return bandag with end_char g"):
-            self.assertEqual(self.trie.make(end_char='g'), 'bandag')
+            self.assertEqual(self.trie.make(end_chars='g'), 'bandag')
+
+        self.trie.add('ball')
+        with self.subTest("Should allow multiple end_chars"):
+            self.assertIn(self.trie.make(end_chars='nl'), ['ban', 'bal'])
 
     def test_depth(self):
         self.trie.add('abba')
@@ -270,7 +274,7 @@ class TestTrieson(unittest.TestCase):
     with the Trie.
     """
     def setUp(self):
-        self.trie = Trieson.Trieson() # default seq_to_end combos
+        self.trie = Trieson() # default seq_to_end combos
 
     def test_proc(self):
         self.assertEqual(self.trie._proc['proc'].__name__, 'seq_to_end')
