@@ -9,6 +9,20 @@ from types import FunctionType
 import random
 
 TERMINATOR = ''
+OBJECT_KEY_DESIGNATOR = '<object>'
+DICT_KEY_DESIGNATOR = '<dict>'
+DEFAULT_KEY_FUNC = lambda x: x.__repr__()
+
+###--- HELPERS --------------------------------------------------------------
+
+def is_primitive(item = None):
+    return type(item) in (str, int, float, bool)
+
+def make_key(item, key_func: FunctionType = DEFAULT_KEY_FUNC):
+    if item is None: return None
+
+    if is_primitive(item): return item
+    else: return key_func(item)
 
 ###--- TRIESONODE CLASS -----------------------------------------------------
 
@@ -17,16 +31,20 @@ class Triesonode:
     Represents a node in the Trieson trie. Contains low-level methods for
     manipulating the trie on a node-by-node basis. Includes methods for:
     - Adding child nodes
-    - Getting child nodes by char
+    - Getting child nodes by key
     - Checking for existence of children
     - Getting and setting node data
     """
 
     #--- CONSTRUCTOR --------------------------------------------------------
 
-    # TODO: implement data setter on a per-node basis allowing data to be set
-    # for each item in the trie
-    def __init__(self, parent: Triesonode = None, value: str = '', data: Any = None):
+    def __init__(self,
+                 parent: Triesonode = None,
+                 value: Any = '',
+                 key: str|int|float|bool = '',
+                 data: Any = None
+    ):
+        self._key = key
         self._value = value
         self._count = 1
         self._children = {}
@@ -35,24 +53,24 @@ class Triesonode:
 
     #--- GET/SET ------------------------------------------------------------
 
-    def add(self, char, chain=True):
-        "Add char to children and return added node"
+    def add(self, item: Any, chain: bool = True,
+            *,
+            key_func: FunctionType = DEFAULT_KEY_FUNC,
+            data: Any = None
+    ):
+        "Add item to children and return added node"
 
-        # convenience for passing more than one char to add:
-        # will add each char to this node (will return this node)
-        if len(char) > 1:
-            for c in char:
-                self.add(c, chain=False)
-            return self
+        # get key from item
+        key = make_key(item, key_func)
 
-        # if char already exists, increment count, else add new node
-        if char in self._children:
-            self._children[char]._count += 1
+        # if key already exists, increment count, else add new node
+        if key in self._children:
+            self._children[key]._count += 1
         else:
-            self._children[char] = Triesonode(self, char)
+            self._children[key] = Triesonode(self, item, key, data)
 
         # return child if chaining...
-        if chain: return self._children[char]
+        if chain: return self._children[key]
 
         # ... or set chain to False to get same node back
         return self
@@ -68,9 +86,10 @@ class Triesonode:
             if data:
                 self._children[TERMINATOR].data(data)
 
-    def get(self, char: Optional[str] = None, weight: int|float = 1,
+    def get(self, item: Any = None, weight: int|float = 1,
             *,
-            exclude_chars: Optional[str|list|tuple|set] = ''
+            key_func: FunctionType = DEFAULT_KEY_FUNC,
+            exclude: Any = []
     ):
         """
         Return specified child node if exists.
@@ -83,22 +102,31 @@ class Triesonode:
         if not self._children: return None
 
         # if no char provided, generate one selected from children
-        if char == None:
+        if item is None:
             # get children that aren't excluded
-            children = [childnode for childnode in self._children.values() if childnode._value not in exclude_chars]
+            # TODO: should we check for the value or key here, or both?
+            children = [child for child in self._children.values() if child._key not in exclude and child._value not in exclude]
 
             # return None if all are excluded or no children
             if not children: return None
 
             # create weights for random selection
-            weights = [child._count ** weight for child in children if child._value not in exclude_chars]
+            # TODO: see above re checking for values, keys, or both
+            weights = [child._count ** weight for child in children if child._key not in exclude and child._value not in exclude]
 
             # select by weighted choice
-            char = random.choices(children, weights)[0]._value
+            item = random.choices(children, weights)[0]._value
 
-        return self._children[char] if char in self._children else None
+        # TODO: THere might be a potential problem here if for whatever reason
+        # our items do not hash properly
+        key = make_key(item, key_func)
 
-    def has(self, char=None, n=0):
+        return self._children[key] if key in self._children else None
+
+    def has(self, item: Any = None, n: int = 0,
+            *,
+            key_func: FunctionType = DEFAULT_KEY_FUNC
+    ):
         """
         Check if child node exists. Can pass integer (positive or negative) to
         limit success to children that have at least or at most that count.
@@ -106,16 +134,18 @@ class Triesonode:
         If no char specified, get list of all child keys.
         """
 
-        if char is None: return list(self._children.keys())
+        if item is None: return list(self._children.keys())
+
+        key = make_key(item, key_func)
 
         # standard return
-        if not n: return char in self._children
+        if not n: return key in self._children
         # bonus 1: return if count is at most n
-        elif n < 0: return char in self._children and self._children[char]._count <= -n
+        elif n < 0: return key in self._children and self._children[key]._count <= -n
         # bonus 2: return only if count is at least n
-        else: return char in self._children and self._children[char]._count >= n
+        else: return key in self._children and self._children[key]._count >= n
 
-    def data(self, data=None):
+    def data(self, data: Any = None):
         """
         Get or set data for node
 
@@ -220,6 +250,7 @@ class TriesonodeTerminator(Triesonode):
     """
 
     def __init__(self, parent: Triesonode = None, data = True):
+        self._key = ''
         self._value = ''
         self._count = 1
         self._parent = parent
