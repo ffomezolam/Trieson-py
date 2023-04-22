@@ -145,6 +145,14 @@ class Triesonode:
         # bonus 2: return only if count is at least n
         else: return key in self._children and self._children[key]._count >= n
 
+    def key(self):
+        "Get key associated with node"
+        return self._key
+
+    def value(self):
+        "Get value associated with node"
+        return self._value
+
     def data(self, data: Any = None):
         """
         Get or set data for node
