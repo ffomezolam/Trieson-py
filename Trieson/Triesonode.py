@@ -4,13 +4,10 @@ Exports Trie Node class
 """
 
 from __future__ import annotations
-from typing import Optional, Any
-from types import FunctionType
+from typing import Optional, Any, Callable
 import random
 
 TERMINATOR = ''
-OBJECT_KEY_DESIGNATOR = '<object>'
-DICT_KEY_DESIGNATOR = '<dict>'
 DEFAULT_KEY_FUNC = lambda x: x.__repr__()
 
 ###--- HELPERS --------------------------------------------------------------
@@ -18,10 +15,10 @@ DEFAULT_KEY_FUNC = lambda x: x.__repr__()
 def is_primitive(item = None):
     return type(item) in (str, int, float, bool)
 
-def make_key(item, key_func: FunctionType = DEFAULT_KEY_FUNC):
+def make_key(item, key_func: Callable[Any, str] = DEFAULT_KEY_FUNC):
     if item is None: return None
 
-    if is_primitive(item): return item
+    if is_primitive(item): return str(item)
     else: return key_func(item)
 
 ###--- TRIESONODE CLASS -----------------------------------------------------
@@ -55,7 +52,7 @@ class Triesonode:
 
     def add(self, item: Any, chain: bool = True,
             *,
-            key_func: FunctionType = DEFAULT_KEY_FUNC,
+            key_func: Callable[Any, str] = DEFAULT_KEY_FUNC,
             data: Any = None
     ):
         "Add item to children and return added node"
@@ -88,7 +85,7 @@ class Triesonode:
 
     def get(self, item: Any = None, weight: int|float = 1,
             *,
-            key_func: FunctionType = DEFAULT_KEY_FUNC,
+            key_func: Callable[Any, str] = DEFAULT_KEY_FUNC,
             exclude: Any = []
     ):
         """
@@ -125,7 +122,7 @@ class Triesonode:
 
     def has(self, item: Any = None, n: int = 0,
             *,
-            key_func: FunctionType = DEFAULT_KEY_FUNC
+            key_func: Callable[Any, str] = DEFAULT_KEY_FUNC
     ):
         """
         Check if child node exists. Can pass integer (positive or negative) to
@@ -162,7 +159,7 @@ class Triesonode:
 
         if data is None: return self._data
 
-        if isinstance(data, FunctionType):
+        if isinstance(data, Callable):
             # call function on data
             self._data = data(self._data)
         else:
