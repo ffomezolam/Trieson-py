@@ -3,7 +3,10 @@
 helper module with functions for extracting combinations from input sequences
 """
 
-def seq_all(seq, min=2):
+from typing import Any
+from collections.abc import Sequence
+
+def seq_all(seq: Sequence[Any], min=2):
     """
     Return all sequential combinations of minimum [min] length as generator.
     Example (min 2): abcd -> [ab, abc, abcd, bc, bcd, cd]
@@ -11,7 +14,7 @@ def seq_all(seq, min=2):
     slen = len(seq)
     return (seq[i:j] for i in range(slen) for j in range(i + 1, slen + 1) if (j - i) >= min)
 
-def seq_to_end(seq, min=2):
+def seq_to_end(seq: Sequence[Any], min=2):
     """
     Return sequential combinations of minimum [min] length to end of sequence as generator.
     Example (min 2): abcd -> [abcd, bcd, cd]
@@ -19,7 +22,7 @@ def seq_to_end(seq, min=2):
     slen = len(seq)
     return (seq[i:] for i in range(slen) if (slen - i) >= min)
 
-def none(seq):
+def none(seq: Sequence[Any]):
     "Return entire sequence as generator."
     return (seq for i in [0])
 
