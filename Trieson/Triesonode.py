@@ -201,7 +201,8 @@ class Triesonode:
             if pre: pre(child)
 
             yield child
-            yield from child.traverse(pre, post)
+            if not child.is_terminator():
+                yield from child.traverse(pre, post)
 
             # postprocess if exists
             if post: post(child)
