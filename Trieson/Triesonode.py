@@ -200,7 +200,6 @@ class Triesonode:
             # preprocess if exists
             if pre: pre(child)
 
-            yield child
             yield from child.traverse(pre, post)
 
             # postprocess if exists
