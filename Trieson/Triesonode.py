@@ -5,6 +5,7 @@ Exports Trie Node class
 
 from __future__ import annotations
 from typing import Optional, Any, Callable
+from types import FunctionType
 import random
 
 TERMINATOR = ''
@@ -15,7 +16,7 @@ DEFAULT_KEY_FUNC = lambda x: x.__repr__()
 def is_primitive(item = None):
     return type(item) in (str, int, float, bool)
 
-def make_key(item, key_func: Callable[Any, str] = DEFAULT_KEY_FUNC):
+def make_key(item, key_func: Callable[[Any], str] = DEFAULT_KEY_FUNC):
     if item is None: return None
 
     if is_primitive(item): return str(item)
@@ -36,7 +37,7 @@ class Triesonode:
     #--- CONSTRUCTOR --------------------------------------------------------
 
     def __init__(self,
-                 parent: Triesonode = None,
+                 parent: Optional[Triesonode] = None,
                  value: Any = '',
                  key: str|int|float|bool = '',
                  data: Any = None
@@ -44,7 +45,7 @@ class Triesonode:
         self._key = key
         self._value = value
         self._count = 1
-        self._children = {}
+        self._children: dict = {}
         self._parent = parent
         self._data = data
 
@@ -52,7 +53,7 @@ class Triesonode:
 
     def add(self, item: Any, chain: bool = True,
             *,
-            key_func: Callable[Any, str] = DEFAULT_KEY_FUNC,
+            key_func: Callable[[Any], str] = DEFAULT_KEY_FUNC,
             data: Any = None
     ):
         "Add item to children and return added node"
@@ -85,7 +86,7 @@ class Triesonode:
 
     def get(self, item: Any = None, weight: int|float = 1,
             *,
-            key_func: Callable[Any, str] = DEFAULT_KEY_FUNC,
+            key_func: Callable[[Any], str] = DEFAULT_KEY_FUNC,
             exclude: Any = []
     ):
         """
@@ -122,7 +123,7 @@ class Triesonode:
 
     def has(self, item: Any = None, n: int = 0,
             *,
-            key_func: Callable[Any, str] = DEFAULT_KEY_FUNC
+            key_func: Callable[[Any], str] = DEFAULT_KEY_FUNC
     ):
         """
         Check if child node exists. Can pass integer (positive or negative) to
@@ -159,7 +160,7 @@ class Triesonode:
 
         if data is None: return self._data
 
-        if isinstance(data, Callable):
+        if isinstance(data, FunctionType):
             # call function on data
             self._data = data(self._data)
         else:
@@ -255,13 +256,13 @@ class TriesonodeTerminator(Triesonode):
     A terminating node has no children and no value, but can hold data.
     """
 
-    def __init__(self, parent: Triesonode = None, data = True):
+    def __init__(self, parent: Optional[Triesonode] = None, data = True):
         self._key = ''
         self._value = ''
         self._count = 1
         self._parent = parent
         self._data = None
-        self._children = []
+        self._children: dict = {}
 
         self.data(data)
 
