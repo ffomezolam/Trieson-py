@@ -38,17 +38,17 @@ class TestHelpers(unittest.TestCase):
     def test_make_key(self):
         make_key = Triesonode.make_key
 
-        with self.subTest('int should return int'):
-            self.assertEqual(1, make_key(1))
+        with self.subTest('int should return str(int)'):
+            self.assertEqual('1', make_key(1))
 
-        with self.subTest('float should return float'):
-            self.assertEqual(1.5, make_key(1.5))
+        with self.subTest('float should return str(float)'):
+            self.assertEqual('1.5', make_key(1.5))
 
         with self.subTest('string should return string'):
             self.assertEqual('string', make_key('string'))
 
-        with self.subTest('bool should return bool'):
-            self.assertIs(False, make_key(False))
+        with self.subTest('bool should return str(bool)'):
+            self.assertEqual('False', make_key(False))
 
 class TestTriesonode(unittest.TestCase):
     def setUp(self):
@@ -399,7 +399,7 @@ class TestTriesonode(unittest.TestCase):
             tester = node._value.upper()
 
         for item in self.node.traverse(preproc):
-            with self.subTest(item = item):
+            with self.subTest("preprocessing function should be run on node", item = item):
                 self.assertEqual(tester, item._value.upper())
 
         # test pre- and post-processing
