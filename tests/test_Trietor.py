@@ -49,6 +49,25 @@ class TestTrietor(unittest.TestCase):
                 self.assertEqual(self.T._values[i], items[i][1])
                 self.assertEqual(self.T._data[i], items[i][2])
 
+    def test_pop(self):
+        titles = 'key', 'value', 'data'
+        entries = 4
+
+        items = [[title + str(n) for title in titles] for n in range(entries)]
+
+        self.T.add(items)
+
+        with self.subTest(f"Length should be {entries}"):
+            self.assertEqual(len(self.T), entries)
+
+        item = self.T.pop()
+
+        with self.subTest(f"pop() should reduce length by one"):
+            self.assertEqual(len(self.T), entries - 1)
+
+        with self.subTest(f"pop() should return last item"):
+            self.assertSequenceEqual(item, [title + str(entries - 1) for title in titles])
+
     def test_data_retrieval(self):
         titles = 'key','value','data'
         entries = 4

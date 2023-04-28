@@ -45,6 +45,11 @@ class Trietor:
 
         return self.add(*args, **kwargs)
 
+    def pop(self) -> tuple:
+        "Remove and return final item"
+
+        return (self._keys.pop(), self._values.pop(), self._data.pop())
+
     def terminate(self, data: Any = True) -> Self:
         "Add terminating data signifying complete sequence"
 
