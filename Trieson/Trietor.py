@@ -13,12 +13,15 @@ class Trietor:
     Trietor class
     """
 
-    def __init__(self, items: Optional[Sequence[Any]] = None):
+    def __init__(self, items: Optional[Sequence[Any]] = None, term_data: Any = None):
         self._keys = []
         self._values = []
         self._data = []
 
+        self._term = None
+
         if items is not None: self.add(items)
+        if term_data is not None: self.terminate(term_data)
 
     def add(self, key: str|Sequence[Sequence[str,Any,Any]], value: Any = None, data: Any = None) -> Self:
         """
@@ -41,6 +44,28 @@ class Trietor:
         "Alias for add()"
 
         return self.add(*args, **kwargs)
+
+    def terminate(self, data: Any = True) -> Self:
+        "Add terminating data signifying complete sequence"
+
+        self._term = data
+
+        return self
+
+    def has_terminator(self):
+        "Whether has terminating data"
+
+        return self._term is not None
+
+    def terminator(self):
+        "Terminating data"
+
+        return self._term
+
+    def term_data(self):
+        "Alias for terminator()"
+
+        return self.terminator()
 
     def keys(self, ix: Optional[int] = None):
         "Return key at index or all keys as iterator"
@@ -67,6 +92,16 @@ class Trietor:
 
         return str(self)
 
+    def __add__(self, other: Trietor):
+        "Append Trietor instances. Terminal data taken from right operand."
+
+        keys = self._keys + other._keys
+        values = self._values + other._values
+        data = self._data + other._data
+        term = other._term
+
+        return Trietor(zip(keys, values, data), term)
+
     def __len__(self):
         "Return length of results"
 
@@ -81,6 +116,11 @@ class Trietor:
         "Iterate over all data"
 
         return (self[ix] for ix in range(len(self._keys)))
+
+    def __call__(self):
+        "Alias for terminator()"
+
+        return self.terminator()
 
     def __repr__(self):
         "Programmatic string representation"

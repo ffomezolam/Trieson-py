@@ -73,6 +73,25 @@ class TestTrietor(unittest.TestCase):
                         items = getattr(self.T, '_' + method)
                         self.assertEqual(m(ix), items[ix])
 
+    def test_termination(self):
+        self.T.add('key', 'value', 'data')
+
+        with self.subTest("by default terminating data should be None"):
+            self.assertIsNone(self.T._term)
+
+        with self.subTest("has_terminator() should be False if data is None"):
+            self.assertFalse(self.T.has_terminator())
+
+        with self.subTest("terminate() should add terminating data"):
+            self.T.terminate("OK")
+            self.assertEqual(self.T._term, "OK")
+
+        with self.subTest("has_terminator() should be True if data is not None"):
+            self.assertTrue(self.T.has_terminator())
+
+        with self.subTest("terminator() should return terminating data"):
+            self.assertEqual(self.T.terminator(), "OK")
+
     def test_as_str(self):
         n = 10
 
@@ -81,6 +100,27 @@ class TestTrietor(unittest.TestCase):
 
         with self.subTest("as_str should return concatenated keys"):
             self.assertEqual(self.T.as_str(), ''.join(str(x) for x in range(n)))
+
+    def test__add__(self):
+        t1 = Trietor([('key1', 'value1', 'data1')], 'term1')
+        t2 = Trietor([('key2', 'value2', 'data2')], 'term2')
+
+        tadd = t1 + t2
+
+        with self.subTest("length should be combined length"):
+            self.assertEqual(len(tadd), len(t1) + len(t2))
+
+        with self.subTest("terminal data should come from right operand"):
+            self.assertEqual(tadd._term, t2._term)
+
+        with self.subTest("keys should be concatenated"):
+            self.assertSequenceEqual(tadd._keys, t1._keys + t2._keys)
+
+        with self.subTest("values should be concatenated"):
+            self.assertSequenceEqual(tadd._values, t1._values + t2._values)
+
+        with self.subTest("data should be concatenated"):
+            self.assertSequenceEqual(tadd._data, t1._data + t2._data)
 
     def test_magic(self):
         titles = 'key','value','data'
@@ -105,6 +145,14 @@ class TestTrietor(unittest.TestCase):
         for count, item in enumerate(self.T):
             with self.subTest(f"__iter__() should iterate over {item}"):
                 self.assertSequenceEqual(item, [title + str(count) for title in titles])
+
+    def test_bool_implicit(self):
+        with self.subTest("empty object should return False"):
+            self.assertFalse(bool(Trietor()))
+
+        with self.subTest("non-empty object should return True"):
+            self.assertTrue(bool(Trietor([('k','v','d')])))
+
 
 if __name__ == "__main__":
     unittest.main()
