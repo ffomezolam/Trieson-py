@@ -1,8 +1,11 @@
 from context import Trieson
 from context import format_return_item_spec, get_node_attr
+from context import Trietor
 
 from context import Triesonode as TN
 from context import combos
+
+from types import GeneratorType
 
 import os
 import unittest
@@ -53,56 +56,41 @@ class TestTrie(unittest.TestCase):
         self.assertIs(self.trie._proc['proc'], combos.none)
 
     def test_add_string(self):
-        s = 'apple'
-        self.trie.add(s)
-        n = self.trie._root
+        strings = ['apple', 'apply', 'apiary', 'ankle']
 
-        with self.subTest("root should be Triesonode instance"):
-            self.assertIsInstance(n, TN.Triesonode)
+        for ix, string in enumerate(strings):
+            # add string
+            self.trie.add(string)
 
-        with self.subTest("root should have first character of string only"):
-            self.assertTrue(n.has(s[0]))
-            self.assertFalse(n.has(s[1]))
+            n = ix + 1 # number of entries
 
-        for char in s:
-            with self.subTest(f"node {n} should have {char}", char = char):
-                self.assertTrue(n.has(char))
+            with self.subTest(f"root should have 1 child"):
+                self.assertEqual(len(self.trie._root.children()), 1)
 
-            n = n.get(char)
+            with self.subTest(f"root child 'a' should have {n} count"):
+                self.assertEqual(self.trie._root.children()[0]._count, n)
 
-            with self.subTest("node should be Triesonode instance"):
-                self.assertIsInstance(n, TN.Triesonode)
+        # check first child
+        node = self.trie._root.get('a')
 
-        # second word
-        s2 = 'acorn'
-        self.trie.add(s2)
-        n = self.trie._root
+        with self.subTest(f"root child 'a' should have two children"):
+            self.assertEqual(len(node.children()), 2)
 
-        with self.subTest("character 'a' should have count 2"):
-            self.assertEqual(n.get(s2[0])._count, 2)
+        for c in { w[1] for w in strings }:
+            with self.subTest(f"root child 'a' should have {c}"):
+                self.assertIn(c, node._children)
 
-        for char in s2:
-            with self.subTest(f"node {n} should have char {char}", char = char):
-                self.assertTrue(n.has(char))
+        # check all words
+        for string in strings:
+            node = self.trie._root
 
-            n = n.get(char)
+            for c in string:
+                with self.subTest(f"node {node} should have child {c}"):
+                    self.assertTrue(node.has(c))
+                node = node[c]
 
-        ss = ['amble', 'able']
-        for s in ss:
-            self.trie.add(s)
-
-        for s in ss:
-            n = self.trie._root
-
-            for char in s:
-                with self.subTest(f"node {n} should have char {char}", char = char):
-                    self.assertTrue(n.has(char))
-
-                n = n.get(char)
-
-        for word in ['apple', 'acorn', 'amble', 'able']:
-            with self.subTest(f'dict should have word {word}'):
-                self.assertIn(word, self.trie.dict)
+            with self.subTest(f"final character should have terminating node"):
+                self.assertTrue(node.has_terminator())
 
     def test_add_object(self):
         seqs = [[Dummy(c) for c in seq] for seq in ('first', 'fight', 'father')]
@@ -139,6 +127,20 @@ class TestTrie(unittest.TestCase):
 
             with self.subTest("first childs children should have keys 'I' and 'A'"):
                 self.assertIn(child.key(), 'IA')
+
+    def test_add_with_key_func(self):
+        words = 'apple', 'approach'
+        items = [[Dummy(c) for c in word] for word in words]
+        key_func = lambda x: "!" + x.v.upper()
+
+        for item in items: self.trie.add(item, key_func = key_func)
+
+        for word in words:
+            with self.subTest("key_func should convert word length to key"):
+                self.assertIn(''.join("!" + c for c in word.upper()), self.trie.dict)
+
+        with self.subTest("child keys should follow key_func"):
+            self.assertEqual(self.trie._root.children()[0].key(), "!A")
 
     def test__get_node_at_prefix(self):
         items = ['apple', [Dummy(c) for c in 'apiary']]
@@ -240,60 +242,44 @@ class TestTrie(unittest.TestCase):
         for k, v in ss.items():
             self.trie.add(k, v)
 
+        with self.subTest(f'get() should return Trietor instance'):
+            self.assertIsInstance(self.trie.get('apple'), Trietor)
+
         for k, v in ss.items():
-            with self.subTest(f"Get {k} should return data {v}", k = k, v = v):
-                self.assertEqual(self.trie.get(k), v)
+            with self.subTest(f"Get {k} should return Trietor with terminal data {v}", k = k, v = v):
+                self.assertEqual(self.trie.get(k).term_data(), v)
 
         for k in ss.keys():
-            with self.subTest("Getting a substring should return None", k = k):
-                self.assertIsNone(self.trie.get(k[:3]))
+            r = self.trie.get(k[:3])
+
+            with self.subTest("Getting a substring should return Trietor instance"):
+                self.assertIsInstance(r, Trietor)
+
+            with self.subTest("Getting a substring should return empty collection by default", k = k):
+                self.assertFalse(r)
+
+            r = self.trie.get(k[:3], partial=True)
+
+            with self.subTest("Getting substring with `partial` flag should return collection"):
+                self.assertTrue(r)
+
+            with self.subTest("Collection should contain substring"):
+                self.assertEqual(r.as_str(), k[:3])
 
         ob1 = [Dummy(c) for c in 'antarctica']
         self.trie.add(ob1, 'place')
 
-        with self.subTest("Getting by object should return data"):
-            self.assertEqual(self.trie.get(ob1), 'place')
+        with self.subTest("Getting by object should return Trietor with correct terminal data"):
+            self.assertEqual(self.trie.get(ob1).term_data(), 'place')
 
-        with self.subTest("Getting object by key should return data"):
-            self.assertEqual(self.trie.get('ANTARCTICA'), 'place')
+        with self.subTest("Getting object by key should return Trietor with correct terminal data"):
+            self.assertEqual(self.trie.get('ANTARCTICA').term_data(), 'place')
 
-    def test_collect(self):
-        words = ['apple', 'apiary', 'approach']
-        obwords = [[Dummy(c) for c in word] for word in words]
+        with self.subTest("Object substring should return empty collection by default"):
+            self.assertFalse(self.trie.get(ob1[:3]))
 
-        for word in words + obwords: self.trie.add(word)
-
-        result = self.trie._collect('ap')
-
-        with self.subTest("By default should return list"):
-            self.assertIsInstance(result, list)
-
-        with self.subTest("String in should return list of chars"):
-            self.assertSequenceEqual(result, ['a', 'p'])
-
-        with self.subTest("Non-existent prefix should return empty list"):
-            self.assertSequenceEqual(self.trie._collect('b'), [])
-
-        result = self.trie._collect('app', as_str = True, return_items = 'k')
-
-        with self.subTest("should return string if specified"):
-            self.assertEqual(result, 'app')
-
-        with self.subTest("should return list of objects if applicable"):
-            result = self.trie._collect(obwords[0][0:3])
-            self.assertSequenceEqual(result, obwords[0][0:3])
-
-        with self.subTest("should return list of string keys if specified"):
-            result = self.trie._collect(obwords[0][0:3], return_items='k', as_str=False)
-            self.assertSequenceEqual(result, ['A','P','P'])
-
-        with self.subTest("should return string of keys if specified"):
-            result = self.trie._collect(obwords[0][0:3], return_items='k', as_str=True)
-            self.assertSequenceEqual(result, 'APP')
-
-        with self.subTest("should return multiple items if specified"):
-            result = self.trie._collect('A', return_items='kv')
-            self.assertSequenceEqual(result, [('A',obwords[0][0])])
+        with self.subTest("Object substring with partial should return filled collection"):
+            self.assertEqual(self.trie.get(ob1[:3], partial=True).as_str(), 'ANT')
 
     def test_substrings(self):
         words = ['apple', 'apiary', 'applicable', 'ambient', 'amuse', 'broken']
@@ -306,7 +292,7 @@ class TestTrie(unittest.TestCase):
             self.assertEqual(len(result), 1)
 
         with self.subTest("valid result on 'a' with limit 1 should return 'pple'"):
-            self.assertEqual(result[0], 'pple')
+            self.assertEqual(result[0].as_str(), 'pple')
 
         result = list(self.trie.substrings('ap'))
 
@@ -315,12 +301,12 @@ class TestTrie(unittest.TestCase):
 
         for item in result:
             with self.subTest(f"'ap' results should start {item}", item = item):
-                self.assertIn(item, [w[2:] for w in words if w.startswith('ap')])
+                self.assertIn(item.as_str(), [w[2:] for w in words if w.startswith('ap')])
 
         result = list(self.trie.substrings('brok'))
 
         with self.subTest("'brok' should yield 'en'"):
-            self.assertEqual(result[0], 'en')
+            self.assertEqual(result[0].as_str(), 'en')
 
     def test_subsequences(self):
         words = ['apple', 'apiary', 'applicable', 'ambient', 'amuse', 'broken']
@@ -329,76 +315,82 @@ class TestTrie(unittest.TestCase):
         for obword in obwords: self.trie.add(obword)
 
         with self.subTest("valid object prefix should return valid subsequences"):
-            self.assertSequenceEqual(list(self.trie.subsequences(obwords[5][:4])), [obwords[5][4:]])
+            r = list(self.trie.subsequences(obwords[5][:4]))
+            self.assertSequenceEqual(list(r[0].values()), obwords[5][4:])
 
         with self.subTest("valid key prefix should return valid subsequences"):
-            self.assertSequenceEqual(list(self.trie.subsequences('BROK')), [obwords[5][4:]])
+            r = list(self.trie.subsequences('BROK'))
+            self.assertSequenceEqual(list(r[0].values()), obwords[5][4:])
 
-        with self.subTest("as_str argument should be ignored if not returning keys"):
-            self.assertSequenceEqual(list(self.trie.subsequences('BROK', as_str=True)), [obwords[5][4:]])
+        for subseq in self.trie.subsequences('AP'):
+            with self.subTest("subsequences should be of type Trietor"):
+                self.assertIsInstance(subseq, Trietor)
 
-        with self.subTest("should return list of keys if specified"):
-            self.assertSequenceEqual(list(self.trie.subsequences('BROK', as_str=False, return_items='k')), [['E', 'N']])
-
-        for subseq in self.trie.subsequences('AP', as_str = True, return_items = 'k'):
             with self.subTest("should work with multiple subsequences", subseq=subseq):
-                self.assertIn(subseq, [word[2:].upper() for word in words if word.startswith('ap')])
+                self.assertIn(subseq.as_str(), [word[2:].upper() for word in words if word.startswith('ap')])
 
-    def test_match(self):
+    def test_match_string(self):
+        words = ['apple', 'apiary', 'append', 'absolute', 'abhor', 'baby']
+
+        for word in words:
+            self.trie.add(word)
+
+        matches = self.trie.match('ap')
+
+        with self.subTest("should return generator"):
+            self.assertIsInstance(matches, GeneratorType)
+
+        with self.subTest("'ap' should have 3 matches"):
+            self.assertEqual(len(list(matches)), 3)
+
+        for match in matches:
+            with self.subTest("match should be in source list", match = match):
+                self.assertIn(match.as_str(), [w for w in words if w.startswith('ap')])
+
+        matches = self.trie.match('ab')
+
+        with self.subTest("'ab' should have 2 matches"):
+            self.assertEqual(len(list(matches)), 2)
+
+        matches = self.trie.match('a', 2)
+
+        with self.subTest("match should limit output if specified"):
+            self.assertEqual(len(list(matches)), 2)
+
+        for match in matches:
+            with self.subTest("match should be in source list", match = match):
+                self.assertIn(match.as_str(), [w for w in words if w.startswith('a')])
+
+    def test_match_object(self):
         words = ['apple', 'apiary', 'append', 'absolute', 'abhor', 'baby']
         obwords = [[Dummy(c) for c in word] for word in words]
 
-        for word in words + obwords:
-            self.trie.add(word)
+        for word in obwords: self.trie.add(word)
 
-        matches = self.trie.match('ap', return_items='k', as_str=True)
-
-        with self.subTest("'ap' should have 3 matches"):
-            self.assertEqual(len(matches), 3)
-
-        for match in matches:
-            with self.subTest("match should be in source list", match = match):
-                self.assertIn(match, [w for w in words if w.startswith('ap')])
-
-        matches = self.trie.match('ab', return_items='k', as_str=True)
-
-        with self.subTest("'ab' should have 2 matches"):
-            self.assertEqual(len(matches), 2)
-
-        matches = self.trie.match('a', 2, return_items='k', as_str=True)
-
-        with self.subTest("match should limit output if specified"):
-            self.assertEqual(len(matches), 2)
-
-        for match in matches:
-            with self.subTest("match should be in source list", match = match):
-                self.assertIn(match, [w for w in words if w.startswith('a')])
-
-        # object test
         matches = self.trie.match(obwords[0][:3])
 
         with self.subTest("APP should have 2 matches"):
-            self.assertEqual(len(matches), 2)
+            self.assertEqual(len(list(matches)), 2)
 
         for match in matches:
             with self.subTest("match prefix should be APP"):
                 self.assertSequenceEqual(match[:3], obwords[0][:3])
 
             with self.subTest("index 3 should be L or E"):
-                self.assertIn(match[3], [obwords[0][3], obwords[2][3]])
+                self.assertIn(match.values()[3], [obwords[0][3], obwords[2][3]])
 
             with self.subTest("index 4 should be E or N"):
-                self.assertIn(match[4], [obwords[0][4], obwords[2][4]])
+                self.assertIn(match.values()[4], [obwords[0][4], obwords[2][4]])
 
         # object key test
-        matches = self.trie.match(obwords[0][:2], return_items='k', as_str=True)
+        matches = self.trie.match(obwords[0][:2])
 
         with self.subTest("AP shold have 3 matches"):
-            self.assertEqual(len(matches), 3)
+            self.assertEqual(len(list(matches)), 3)
 
         for match in matches:
             with self.subTest("match should be in source list"):
-                self.assertIn(match, [w.upper() for w in words if w.startswith('ap')])
+                self.assertIn(match.as_str(), [w.upper() for w in words if w.startswith('ap')])
 
     @unittest.skip("unused")
     def test_make(self):
@@ -499,27 +491,28 @@ class TestTrie(unittest.TestCase):
         with self.subTest("Should allow multiple end_chars"):
             self.assertIn(self.trie.make(end_chars='nl'), ['ban', 'bal'])
 
-    @unittest.skip("unused")
     def test_depth(self):
         self.trie.add('abba')
         self.assertEqual(self.trie.depth(), 4)
         self.trie.add('abbalicious')
-        self.assertGreater(self.trie.depth(), 4)
+        self.assertEqual(self.trie.depth(), len('abbalicious'))
 
-    @unittest.skip("unused")
     def test_magic_contains(self):
         words = ['apple', 'cucumber', 'parrot']
-        self.trie.add(words)
         for word in words:
-            with self.subTest(word = word):
+            self.trie.add(word)
+
+        for word in words:
+            with self.subTest(f"word {word} should be in trie", word = word):
                 self.assertIn(word, self.trie)
 
-        self.assertNotIn('wombat', self.trie)
+        with self.subTest("non-existent word should not be in trie"):
+            self.assertNotIn('wombat', self.trie)
 
-    @unittest.skip("unused")
     def test_magic_getitem(self):
         words = ['apple', 'cucumber', 'wombat']
         data = ['baseball', 'basketball', 'foosball']
+
         for i in range(3):
             word = words[i]
             datum = data[i]
@@ -527,10 +520,17 @@ class TestTrie(unittest.TestCase):
 
         for i, word in enumerate(words):
             datum = data[i]
-            with self.subTest(datum = datum, word = word):
-                self.assertEqual(datum, self.trie[word])
+            results = self.trie[word]
 
-    @unittest.skip("unused")
+            with self.subTest("should return Trietor instance"):
+                self.assertIsInstance(results, Trietor)
+
+            with self.subTest(f"results terminating data should be {datum}"):
+                self.assertEqual(results.terminator(), datum)
+
+            with self.subTest(f"results as string should be {word}"):
+                self.assertEqual(results.as_str(), word)
+
     def test_magic_setitem(self):
         items = {
             'apple': 'crunchy',
@@ -542,22 +542,21 @@ class TestTrie(unittest.TestCase):
             self.trie[k] = v
 
         for k, v in items.items():
-            with self.subTest(k = k, v = v):
-                self.assertEqual(self.trie.get(k), v)
+            with self.subTest(f"item {k} should have data {v}", k = k, v = v):
+                self.assertEqual(self.trie.get(k).terminator(), v)
 
-    @unittest.skip("unused")
     def test_magic_len(self):
         words = ['apple', 'apiary', 'ghost', 'morph', 'solo', 'apple']
-        self.trie.add(words)
+        for word in words: self.trie.add(word)
         self.assertEqual(len(self.trie), 5)
 
-    @unittest.skip("unused")
     def test_magic_iter(self):
         words = ['boring', 'almost', 'tryagain', 'maybenexttime', 'oops']
-        self.trie.add(words)
+        for word in words: self.trie.add(word)
+
         for word in self.trie:
-            with self.subTest(word = word):
-                self.assertIn(word, words)
+            with self.subTest("should iterate through words", word = word):
+                self.assertIn(word.as_str(), words)
 
 class TestTrieson(unittest.TestCase):
     """

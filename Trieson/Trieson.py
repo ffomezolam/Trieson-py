@@ -8,7 +8,8 @@ from collections.abc import Sequence
 
 import logging
 
-from .Triesonode import Triesonode
+from .Triesonode import Triesonode, DEFAULT_KEY_FUNC
+from .Trietor import Trietor
 from . import combos
 
 #--- CONSTANTS --------------------------------------------------------------
@@ -56,7 +57,13 @@ class Trieson:
 
     # CONSTRUCTOR ------------------------------------------------------------
 
-    def __init__(self, proc = None, proc_args: list|tuple = [], proc_kwargs: dict = {}):
+    def __init__(self,
+                 proc = None,
+                 proc_args: list|tuple = [],
+                 proc_kwargs: dict = {},
+                 *,
+                 key_func: Callable[[Any], str] = DEFAULT_KEY_FUNC
+    ):
         self._root = Triesonode()
         self._depth = 0
         self.dict = set()
@@ -65,6 +72,7 @@ class Trieson:
             "args": proc_args,
             "kwargs": proc_kwargs
         }
+        self._key_func = key_func
 
     # GET/SET/QUERY METHODS --------------------------------------------------
 
@@ -75,14 +83,33 @@ class Trieson:
             *,
             proc: Optional[Callable[[Sequence[Any], ...], Sequence[Any]]] = None,
             proc_args: list|tuple = [],
-            proc_kwargs: dict = {}
+            proc_kwargs: dict = {},
+            key_func: Optional[Callable[[Any], str]] = None
     ):
         """
         Add sequence to Trie, associate with data.
 
-        Can pass a single sequence. `proc` argument
-        will preprocess each sequence, and must return a sequence or list
-        of sequences to add.
+        Parameters
+        ==========
+        data: Any (default True)
+            Data to associate with sequence
+
+        Keyword-Only Parameters
+        -----------------------
+        proc: [Callable] (default None)
+            Optional procedure to call on sequence before adding to trie. Must
+            accept sequence as first argument and return a list of sequences to
+            add.
+
+        proc_args: [list|tuple] (default [])
+            Optional additional positional arguments to `proc`.
+
+        proc_kwargs: [dict] (default {})
+            Optional additional keyword arguments to `proc`.
+
+        key_func: [Callable] (default __repr__())
+            Optional procedure to convert sequence item to string key. This is
+            called on each item in the sequence.
         """
 
         # default proc if none
@@ -90,7 +117,11 @@ class Trieson:
         proc_args = proc_args or self._proc['args']
         proc_kwargs = proc_kwargs or self._proc['kwargs']
 
-        if not isinstance(sequence, Sequence): sequence = [sequence]
+        # default key_func if none
+        key_func = key_func or self._key_func
+
+        # add sequence as string to dict
+        self.dict.add(sequence if type(sequence) is str else ''.join(key_func(item) for item in sequence))
 
         # apply proc function to sequence
         sequence = [ps for ps in proc(sequence, *proc_args, **proc_kwargs)]
@@ -99,20 +130,14 @@ class Trieson:
         for subseq in sequence:
             node = self._root
             depth = 0
-            key = ''
 
             for item in subseq:
-                node = node.add(item)
+                node = node.add(item, key_func = key_func)
                 depth += 1
-                key += node.key()
 
             node.terminate(data)
 
             if depth > self._depth: self._depth = depth
-
-            # add to dict
-            # TODO: only add full words to dict, not processed words
-            self.dict.add(key)
 
         return self
 
@@ -148,98 +173,60 @@ class Trieson:
 
         return node.has_terminator()
 
-    def get(self, seq: Optional[Sequence[Any]] = None):
-        "Get data associated with string"
+    def get(self,
+            seq: Optional[Sequence[Any]] = None,
+            *,
+            partial: bool = False,
+            proc: Optional[Callable[[Triesonode], Any]] = None
+    ) -> Trietor:
+        "Get data associated with sequence items"
 
-        if not seq: return self.make()
+        # generate random sequence if not specified
+        if not seq: return self.make(proc = proc)
 
-        # get node at conclusion of sequence
-        node = self._get_node_at_prefix(seq)
+        # prepare container
+        t = Trietor()
 
-        if not node: return None
+        # start at root node
+        node = self._root
 
-        # only return full sequences
-        if not node.has_terminator(): return None
+        # traverse trie
+        for item in seq:
+            node = node[item]
 
-        return node.get_terminator().data()
+            # if `seq` not in trie, return empty match unless `partial` is True
+            if not node:
+                if partial: return t
+                else: return Trietor()
 
-    def _collect(self,
-                seq: str|Sequence[Any],
-                *,
-                return_items: str|Sequence[str] = 'v',
-                as_str: bool = False
-    ) -> list:
-        """
-        Collect selected data from trie associated with `seq`
-        """
+            if proc: proc(node)
 
-        # format return_items
-        return_items, as_str = format_return_item_spec(return_items, as_str)
+            t.add(node.key(), node.value(), node.data())
 
-        out = [] # list to hold visited items
-
-        def proc(node):
-            # get items to add to sequence
-            items = tuple(get_node_attr(i, node) for i in return_items)
-            if len(items) == 1: items = items[0]
-
-            # add items to sequence
-            out.append(items)
-
-        # make sure we have the prefix as we collect the items
-        success = bool(self._get_node_at_prefix(seq, proc))
-
-        if not success:
-            out = '' if as_str else []
-        elif as_str:
-            out = ''.join(out)
-
-        return out
-
-    def substrings(self, prefix = None, limit = None):
-        """
-        Collect and return all substrings. Alias for subsequences() but
-        automatically returns matches as strings.
-        """
-        return self.subsequences(prefix, limit, return_items = 'k', as_str = True)
-
-    def subseqs(self, prefix = None, limit = None, *, as_str = False):
-        "alias for subsequences()"
-        return self.subsequences(prefix, limit, as_str = as_str)
+        # get terminating node, or return based on `partial` argument
+        if node.has_terminator():
+            t.terminate(node.get_terminator().data())
+            return t
+        else:
+            if partial: return t
+            return Trietor()
 
     def subsequences(self,
                      prefix: Optional[Sequence[Any]] = None,
-                     limit: Optional[int] = None,
-                     *,
-                     return_items: str|Sequence[str] = 'v',
-                     as_str: bool = False
-    ):
+                     limit: Optional[int] = None
+    ) -> Trietor:
         """
         Traverse trie, yielding all subsequences of `prefix`.
 
         Parameters
         ==========
 
-        positional
-        ----------
         prefix: [Sequence] - default None
             The prefix to precede the returned subsequences
 
         limit: [int] - default None
             Limit the number of returned subsequences
-
-        keyword-only
-        ------------
-        return_items: [str|Sequence[str]] - default 'value'
-            Specify items to return. Available options: 'key', 'value', 'data'
-
-        as_str: [bool] - default False
-            Whether to return results as string. By default results are returned
-            as a list. Only valid if returning a key.
         """
-
-        # format return_items
-        return_items, as_str = format_return_item_spec(return_items, as_str)
 
         seq = [] # list to hold visited items
         count = 0 # number of subsequences found
@@ -249,12 +236,7 @@ class Trieson:
 
         # preprocessing function to add item to sequence
         def preproc(node):
-            # get items to add to sequence
-            items = [get_node_attr(i, node) for i in return_items]
-            if len(items) == 1: items = items[0]
-
-            # add items to sequence
-            seq.append(items)
+            seq.append(node)
 
         # postprocessing function to remove item from sequence
         def postproc(node):
@@ -265,12 +247,24 @@ class Trieson:
 
             # if terminating node reached, yield sequence
             if node.is_terminator():
-                count += 1
-                yield seq[:-1] if not as_str else ''.join(seq)
+                count += 1 # increment success count
+
+                # yield data as Trietor instance
+                yield Trietor([(node.key(), node.value(), node.data()) for node in seq[:-1]], seq[-1].data())
 
             # break if we've reached limit
             # TODO: Do we need this if we're doing this as a generator?
             if limit and count >= limit: break
+
+    def substrings(self, prefix = None, limit = None):
+        "Alias for subsequences()"
+
+        return self.subsequences(prefix, limit)
+
+    def subseqs(self, prefix = None, limit = None):
+        "alias for subsequences()"
+
+        return self.subsequences(prefix, limit)
 
     def match_strings(self, prefix: str, limit: Optional[int] = None):
         "Alias for match() but string-specific"
@@ -279,17 +273,17 @@ class Trieson:
     def match(self,
               sequence: str|Sequence[Any],
               limit: Optional[int] = None,
-              *,
-              return_items = 'v',
-              as_str = False
-    ):
+    ) -> Trietor:
         "Get possible matches to sequence, max <limit>"
 
-        if not self.has_prefix(sequence): return []
+        if not self.has_prefix(sequence):
+            yield Trietor()
 
-        prefix = self._collect(sequence, return_items = return_items, as_str = as_str)
+        else:
+            prefix = self.get(sequence, partial=True)
 
-        return [prefix + sub for sub in self.subsequences(sequence, limit, return_items = return_items, as_str = as_str)]
+            for sub in self.subsequences(sequence, limit):
+                yield prefix + sub
 
     def make(self,
              prefix: str = '',
@@ -503,28 +497,35 @@ class Trieson:
                 return join_word(plist + word)
 
     def depth(self):
+        "Get trie depth"
+
         return self._depth
 
     # MAGIC ------------------------------------------------------------------
 
-    def __contains__(self, string):
-        "Check if string in Trie"
-        return self.has(string)
+    def __contains__(self, seq):
+        "Check if sequence in Trie"
 
-    def __getitem__(self, string):
-        "Get data associated with string. Alias for get(string)"
-        return self.get(string)
+        return self.has(seq)
+
+    def __getitem__(self, seq):
+        "Alias for get(seq)"
+
+        return self.get(seq)
 
     def __setitem__(self, string, data):
         "Add item to Trie and associate with data"
+
         self.add(string, data)
 
     def __len__(self):
-        "Get number of full strings in Trie"
+        "Get number of full sequences in Trie"
+
         return len(self.dict)
 
     def __iter__(self):
-        "Iterate through all strings in Trie"
+        "Iterate through all sequences in Trie"
+
         for s in self.substrings():
             yield s
 
