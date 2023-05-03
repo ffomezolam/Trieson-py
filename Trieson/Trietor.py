@@ -6,9 +6,11 @@ Defines the object that holds a Trieson query result
 from __future__ import annotations
 
 from typing import Optional, Any, Self
-from collections.abc import Sequence
+from collections.abc import Sequence, Iterable, Callable
 
-class Trietor:
+import logging
+
+class Trietor(Sequence):
     """
     Trietor class
     """
@@ -23,7 +25,12 @@ class Trietor:
         if items is not None: self.add(items)
         if term_data is not None: self.terminate(term_data)
 
-    def add(self, key: str|Sequence[Sequence[str,Any,Any]], value: Any = None, data: Any = None) -> Self:
+    def copy(self):
+        "Make a copy of instance"
+
+        return Trietor(zip(self._keys, self._values, self._data), self._term)
+
+    def add(self, key: str|Sequence[Sequence[Any]], value: Any = None, data: Any = None) -> Self:
         """
         Add key, value, data to collection.
 
@@ -34,9 +41,11 @@ class Trietor:
             self._keys.append(key)
             self._values.append(value)
             self._data.append(data)
-        else:
+        elif isinstance(key, Sequence|Iterable):
             for items in key:
                 self.add(*items)
+        else:
+            logging.debug(f"Cannot add item with key {key} of type {type(key)}")
 
         return self
 
@@ -72,33 +81,66 @@ class Trietor:
 
         return self.terminator()
 
-    def keys(self, ix: Optional[int] = None):
-        "Return key at index or all keys as iterator"
+    def keys(self, ix: Optional[int|Callable[..., Sequence]] = None):
+        "Return key at index, in slice, or all keys"
 
-        return (k for k in self._keys) if ix is None else self._keys[ix]
+        return self._keys if ix is None else self._keys[ix]
 
-    def values(self, ix: Optional[int] = None):
-        "Return key at index or all keys as iterator"
+    def values(self, ix: Optional[int|Callable[..., Sequence]] = None):
+        "Return key at index, in slice, or all keys"
 
-        return (v for v in self._values) if ix is None else self._values[ix]
+        return self._values if ix is None else self._values[ix]
 
-    def data(self, ix: Optional[int] = None):
-        "Return data at index or all data as iterator"
+    def data(self, ix: Optional[int|Callable[..., Sequence]] = None):
+        "Return data at index, in slice, or all data"
 
-        return (d for d in self._data) if ix is None else self._data[ix]
+        return self._data if ix is None else self._data[ix]
 
-    def items(self, ix: Optional[int] = None):
-        "Return all data at index or as list of tuples"
+    def items(self, ix: Optional[int|Callable[..., Sequence]] = None):
+        "Return data at index, in slice, or as list of tuples"
 
-        return self.__iter__() if ix is None else self[ix]
+        if ix is None or isinstance(ix, slice):
+            return list(zip(self.keys(ix), self.values(ix), self.data(ix)))
+        else:
+            return (self.keys(ix), self.values(ix), self.data(ix))
 
     def as_str(self):
         "Alias for __str__()"
 
         return str(self)
 
-    def __add__(self, other: Trietor):
+    def __eq__(self, other: Trietor|Sequence[Any]):
+        """
+        Test for equality by key. Objects are equal if keys are the same value
+        and in the same order.
+        """
+
+        if not other: return False
+
+        # if passing other sequence, check whether its keys or items
+        if type(other) is not Trietor:
+            if type(other[0]) is str:
+                # assume keys
+                return self._keys == other
+            elif isinstance(other, Sequence|Iterable):
+                # assume (key,value,data)
+                return self._keys == [i[0] for i in other]
+        else:
+            # compare keys
+            return self._keys == other._keys
+
+    def __add__(self, other: Trietor|Sequence[Any]):
         "Append Trietor instances. Terminal data taken from right operand."
+
+        # no addition, return copy
+        if not other: return self.copy()
+
+        # if passing other sequence, make sure it is a sequence of sequences
+        if type(other) is not Trietor:
+            if type(other[0]) is str:
+                other = [other]
+
+            other = Trietor(other)
 
         keys = self._keys + other._keys
         values = self._values + other._values
@@ -113,9 +155,9 @@ class Trietor:
         return len(self._keys)
 
     def __getitem__(self, ix):
-        "Get item by index"
+        "Get item by index, key, or slice"
 
-        return (self.keys(ix), self.values(ix), self.data(ix))
+        return self.items(ix)
 
     def __iter__(self):
         "Iterate over all data"
@@ -130,7 +172,7 @@ class Trietor:
     def __repr__(self):
         "Programmatic string representation"
 
-        return f'Trietor({list(self.__iter__())})'
+        return f'Trietor({list(self.__iter__())}, {self._term})'
 
     def __str__(self):
         "Human-readable string representation - concatenated keys"
