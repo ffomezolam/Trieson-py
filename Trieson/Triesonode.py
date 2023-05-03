@@ -4,7 +4,7 @@ Exports Trie Node class
 """
 
 from __future__ import annotations
-from typing import Optional, Any, Callable
+from typing import Optional, Any, Callable, Iterable
 from types import FunctionType
 import random
 
@@ -14,9 +14,13 @@ DEFAULT_KEY_FUNC = lambda x: x.__repr__()
 ###--- HELPERS --------------------------------------------------------------
 
 def is_primitive(item = None):
+    "Helper function to determine whether item is simple primitive type"
+
     return type(item) in (str, int, float, bool)
 
 def make_key(item, key_func: Callable[[Any], str] = DEFAULT_KEY_FUNC):
+    "Helper function to return string representation of item"
+
     if item is None: return None
 
     if is_primitive(item): return str(item)
@@ -32,6 +36,15 @@ class Triesonode:
     - Getting child nodes by key
     - Checking for existence of children
     - Getting and setting node data
+
+    Constructor Parameters
+    ==========
+
+    value: Any
+        Item value
+
+    data: [Any] (default None)
+        Data to associate with item
     """
 
     #--- CONSTRUCTOR --------------------------------------------------------
@@ -39,15 +52,19 @@ class Triesonode:
     def __init__(self,
                  parent: Optional[Triesonode] = None,
                  value: Any = '',
-                 key: str|int|float|bool = '',
-                 data: Any = None
+                 data: Optional[Any] = None,
+                 *,
+                 # can avoid call overhead by passing key string directly
+                 key: str|Callable[[Any], str] = DEFAULT_KEY_FUNC
     ):
-        self._key = key
+        self._key = key if type(key) is str else make_key(value, key)
         self._value = value
+        self._data = data
+
         self._count = 1
+
         self._children: dict = {}
         self._parent = parent
-        self._data = data
 
     #--- GET/SET ------------------------------------------------------------
 
@@ -58,14 +75,14 @@ class Triesonode:
     ):
         "Add item to children and return added node"
 
-        # get key from item
+        # generate key
         key = make_key(item, key_func)
 
         # if key already exists, increment count, else add new node
         if key in self._children:
             self._children[key]._count += 1
         else:
-            self._children[key] = Triesonode(self, item, key, data)
+            self._children[key] = Triesonode(self, item, data, key=key)
 
         # return child if chaining...
         if chain: return self._children[key]
@@ -84,44 +101,9 @@ class Triesonode:
             if data:
                 self._children[TERMINATOR].data(data)
 
-    def get(self, item: Any = None, weight: int|float = 1,
-            *,
-            key_func: Callable[[Any], str] = DEFAULT_KEY_FUNC,
-            exclude: Any = []
-    ):
-        """
-        Return specified child node if exists.
-        If no child node specified, get a random node by relative child counts.
-
-        Can exclude children by passing optional `exclude_chars` argument containing an iterable of characters to exclude.
-        """
-
-        # no children? return None
-        if not self._children: return None
-
-        # if no char provided, generate one selected from children
-        if item is None:
-            # get children that aren't excluded
-            # TODO: should we check for the value or key here, or both?
-            children = [child for child in self._children.values() if child._key not in exclude and child._value not in exclude]
-
-            # return None if all are excluded or no children
-            if not children: return None
-
-            # create weights for random selection
-            # TODO: see above re checking for values, keys, or both
-            weights = [child._count ** weight for child in children if child._key not in exclude and child._value not in exclude]
-
-            # select by weighted choice
-            item = random.choices(children, weights)[0]._value
-
-        # TODO: THere might be a potential problem here if for whatever reason
-        # our items do not hash properly
-        key = make_key(item, key_func)
-
-        return self._children[key] if key in self._children else None
-
-    def has(self, item: Any = None, n: int = 0,
+    def has(self,
+            item: Optional[Any] = None,
+            n: int = 0,
             *,
             key_func: Callable[[Any], str] = DEFAULT_KEY_FUNC
     ):
@@ -143,12 +125,69 @@ class Triesonode:
         # bonus 2: return only if count is at least n
         else: return key in self._children and self._children[key]._count >= n
 
+    def get(self,
+            item: Any = None,
+            weight: int|float = 1,
+            *,
+            key_func: Callable[[Any], str] = DEFAULT_KEY_FUNC,
+            exclude: Any = []
+    ):
+        """
+        Return specified child node if exists. If no child node specified, get
+        a random child node by relative child counts.
+
+        Can exclude children by passing optional `exclude_chars` argument
+        containing an iterable of items or item keys to exclude.
+
+        Parameters
+        ==========
+
+        item: [Any]
+            Item to get. Returns None if item doesn't exist. If no item
+            specified, returns a random item.
+
+        weight: int|float (default 1)
+            Weight for the random selector. 1 is normal weight, 2 is double, 0
+            is all even weighting, etc.
+
+        key_func: callable (default calls __repr__() method of `item`)
+            Function to convert non-primitive item into a string to use as key
+
+        exclude: [Any] (default [])
+            Items or keys to exclude from the pool of available children
+        """
+
+        # no children? return None
+        if not self._children: return None
+
+        # if no item provided, generate one selected from children
+        if item is None:
+            # get children that aren't excluded
+            children = [childnode for childnode in self.children() if childnode.key() not in exclude and childnode.value() not in exclude]
+
+            # return None if all are excluded or no children
+            if not children: return None
+
+            # get weights of retrieved children
+            weights = [childnode.count() ** weight for childnode in children]
+
+            # select node by weighted random choice
+            return random.choices(children, weights)[0]
+
+        # ... otherwise get item as string and return corresponding node
+        else:
+            key = make_key(item, key_func)
+
+            return self.children(key)
+
     def key(self):
         "Get key associated with node"
+
         return self._key
 
     def value(self):
         "Get value associated with node"
+
         return self._value
 
     def data(self, data: Any = None):
@@ -169,10 +208,27 @@ class Triesonode:
 
         return self
 
-    def children(self):
-        "Get child nodes as list"
+    def count(self):
+        "Get value count"
 
-        return list(self._children.values())
+        return self._count
+
+    def children(self, key: Optional[str|Sequence] = None):
+        "Get single child, multiple children, or all child nodes as list"
+
+        # No argument - return all child nodes
+        if key is None:
+            return list(self._children.values())
+
+        # string argument - return single child or None if not in children
+        if type(key) is str:
+            return self._children[key] if key in self._children else None
+
+        # iterable argument - return all specified children
+        else:
+            return [self._children[k] for k in key if k in self._children]
+
+        return None
 
     def parent(self):
         "Return parent node; will return None if root"

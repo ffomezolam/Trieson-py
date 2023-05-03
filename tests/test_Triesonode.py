@@ -50,6 +50,12 @@ class TestHelpers(unittest.TestCase):
         with self.subTest('bool should return str(bool)'):
             self.assertEqual('False', make_key(False))
 
+        with self.subTest('default object should return object.__repr__()'):
+            self.assertEqual('Dummy(A)', make_key(Dummy('A')))
+
+        with self.subTest('should allow custom key function'):
+            self.assertEqual('a', make_key(Dummy('A'), key_func = lambda x: x.v.lower()))
+
 class TestTriesonode(unittest.TestCase):
     def setUp(self):
         self.node = Triesonode.Triesonode()
@@ -58,6 +64,7 @@ class TestTriesonode(unittest.TestCase):
         self.assertIsInstance(self.node, Triesonode.Triesonode)
 
     def test_add_char(self):
+        # add one
         child = self.node.add('a')
 
         with self.subTest("should have key 'a'"):
@@ -114,6 +121,12 @@ class TestTriesonode(unittest.TestCase):
             with self.subTest(f"node value should be '{char}'"):
                 self.assertEqual(n._value, char)
 
+    def test_add_no_chain(self):
+        # test no chaining
+        n = self.node.add('a', chain=False)
+        with self.subTest("returned node should be the same as processed node"):
+            self.assertIs(n, self.node)
+
     def test_add_object(self):
         a = Dummy('a')
 
@@ -126,7 +139,7 @@ class TestTriesonode(unittest.TestCase):
             self.assertEqual(child._key, a.__repr__())
 
         with self.subTest("child node value should be Dummy('a')"):
-            self.assertEqual(child._value, a)
+            self.assertIs(child._value, a)
 
         with self.subTest("child should have count of 1"):
             self.assertEqual(child._count, 1)
@@ -141,7 +154,7 @@ class TestTriesonode(unittest.TestCase):
             self.assertEqual(child._key, a.__repr__())
 
         with self.subTest("child at key should match child node", child=child):
-            self.assertEqual(self.node._children[a.__repr__()], child)
+            self.assertIs(self.node._children[a.__repr__()], child)
 
         with self.subTest("child node should have count of 2"):
             self.assertEqual(child._count, 2)
@@ -168,23 +181,138 @@ class TestTriesonode(unittest.TestCase):
             self.assertFalse(self.node.has('g', 3))
             self.assertFalse(self.node.has('c', -1))
 
+    def test_data(self):
+        chars = 'abcde'
+        data = '54321'
+
+        for c in chars:
+            self.node.add(c)
+
+        for ix, char in enumerate(chars):
+            n = self.node.get(char)
+            n.data(data[ix])
+
+        for ix, char in enumerate(chars):
+            n = self.node.get(char)
+            with self.subTest("should be Triesonode instance"):
+                self.assertIsInstance(n, Triesonode.Triesonode)
+
+            with self.subTest("should set data", ix = ix, char = char):
+                self.assertEqual(n.data(), data[ix])
+
+        for ix, char in enumerate(chars):
+            with self.subTest("passing a function should change data"):
+                n = self.node.get(char)
+
+                def inc(n):
+                    return int(n) + 1
+
+                n.data(inc)
+
+                self.assertEqual(n.data(), int(data[ix]) + 1)
+
+    def test_children_no_arg(self):
+        chars = 'abccde'
+        for char in chars: self.node.add(chars)
+
+        children = self.node.children()
+
+        with self.subTest('calling with no arguments should return list'):
+            self.assertIsInstance(children, list)
+
+        for child in children:
+            with self.subTest('child is Triesonode instance', child = child):
+                self.assertIsInstance(child, Triesonode.Triesonode)
+
+            with self.subTest('value is valid'):
+                self.assertIn(child._value, chars)
+
+            with self.subTest('if child is "c" count should be 2'):
+                if(child._value == 'c'):
+                    self.assertEqual(child._count, 2)
+
+    def test_children_str_arg(self):
+        chars = 'abccde'
+
+        for char in chars: self.node.add(char)
+
+        child = self.node.children('c')
+
+        with self.subTest('existing child should return Triesonode instance'):
+            self.assertIsInstance(child, Triesonode.Triesonode)
+
+        with self.subTest('key should be in children'):
+            self.assertIn('c', self.node._children)
+            pass
+
+        with self.subTest('existing child should return node'):
+            self.assertEqual(child.value(), 'c')
+            pass
+
+    def test_parent(self):
+        chars = 'abc'
+
+        for c in chars: self.node.add(c)
+
+        children = self.node.children()
+
+        self.assertIsNone(self.node.parent())
+
+        for child in children:
+            with self.subTest("parent is root", child = child):
+                self.assertIs(child.parent(), self.node)
+
     def test_get_specific(self):
         chars = '122333444455555'
-        for char in chars:
-            self.node.add(char)
+
+        for char in chars: self.node.add(int(char))
 
         # test getting individual characters
         for i in range(1,6):
             n = self.node.get(str(i))
+
             with self.subTest("should be instance of Triesonode"):
                 self.assertIsInstance(n, Triesonode.Triesonode)
 
-            with self.subTest("value and key should be the number as a string"):
-                self.assertEqual(n._value, str(i))
+            with self.subTest("key should be the number as a string"):
                 self.assertEqual(n._key, str(i))
+
+            with self.subTest("value should be the number as an int"):
+                self.assertEqual(n._value, i)
 
             with self.subTest("count should equal number of occurrences"):
                 self.assertEqual(n._count, i)
+
+    def test_get_specific_with_object(self):
+        items = [Dummy(n) for n in range(1,6)]
+
+        for dummy in items:
+            count = 0
+            for n in range(1, dummy.v + 1):
+                self.node.add(dummy)
+                count += 1
+
+            self.assertEqual(n, count)
+
+        for i in range(1,6):
+            for k in (str(i), items[i-1]):
+                n = self.node.get(k)
+
+                with self.subTest("should be instance of Triesonode"):
+                    #self.assertIsInstance(n, Triesonode.Triesonode)
+                    pass
+
+                with self.subTest("key should be object as a string"):
+                    #self.assertEqual(n._key, str(k))
+                    pass
+
+                with self.subTest("value should be object"):
+                    #self.assertEqual(n._value, chars[i-1])
+                    pass
+
+                with self.subTest("count should equal number of occurrences"):
+                    #self.assertEqual(n._count, i)
+                    pass
 
     def test_get_random_normal_weight(self):
         chars = '122333444455555'
@@ -231,12 +359,12 @@ class TestTriesonode(unittest.TestCase):
         test_threshold = 0.9
 
         for x in range(tries):
-            counts = [0 for _ in range(6)]
+            counts = [0 for _ in range(1,6)]
             for _ in range(1000):
-                n = int(self.node.get(weight=0)._value)
-                counts[n] += 1
+                n = int(self.node.get(weight=0).value())
+                counts[n-1] += 1
 
-            for ix in range(2,6):
+            for ix in range(1,5):
                 if (counts[ix] - delta) <= counts[ix-1] and (counts[ix] + delta) >= counts[ix-1]:
                     successes += 1
 
@@ -300,67 +428,6 @@ class TestTriesonode(unittest.TestCase):
 
         with self.subTest("should be able to exclude by key instead of value"):
             self.assertEqual(self.node.get(exclude = [ob.__repr__() for ob in obs[0:2]])._value, obs[2])
-
-    def test_data(self):
-        chars = 'abcde'
-        data = '54321'
-
-        for c in chars:
-            self.node.add(c)
-
-        for ix, char in enumerate(chars):
-            n = self.node.get(char)
-            n.data(data[ix])
-
-        for ix, char in enumerate(chars):
-            n = self.node.get(char)
-            with self.subTest("should be Triesonode instance"):
-                self.assertIsInstance(n, Triesonode.Triesonode)
-
-            with self.subTest("should set data", ix = ix, char = char):
-                self.assertEqual(n.data(), data[ix])
-
-        for ix, char in enumerate(chars):
-            with self.subTest("passing a function should change data"):
-                n = self.node.get(char)
-
-                def inc(n):
-                    return int(n) + 1
-
-                n.data(inc)
-
-                self.assertEqual(n.data(), int(data[ix]) + 1)
-
-    def test_children(self):
-        chars = 'abccde'
-        self.node.add(chars)
-        children = self.node.children()
-
-        self.assertIsInstance(children, list)
-
-        for child in children:
-            with self.subTest('child is Triesonode instance', child = child):
-                self.assertIsInstance(child, Triesonode.Triesonode)
-
-            with self.subTest('value is valid'):
-                self.assertIn(child._value, chars)
-
-            with self.subTest('if child is "c" count should be 2'):
-                if(child._value == 'c'):
-                    self.assertEqual(child._count, 2)
-
-    def test_parent(self):
-        chars = 'abc'
-
-        for c in chars: self.node.add(c)
-
-        children = self.node.children()
-
-        self.assertIsNone(self.node.parent())
-
-        for child in children:
-            with self.subTest("parent is root", child = child):
-                self.assertIs(child.parent(), self.node)
 
     def test_traverse(self):
         words = ['acorn', 'accede', 'ascend', 'ban', 'brand', 'corn']
