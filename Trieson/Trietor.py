@@ -154,7 +154,12 @@ class Trietor(Sequence):
 
         return len(self._keys)
 
-    def __getitem__(self, ix):
+    def __contains__(self, v: Any) -> bool:
+        "See if key or value is in collection"
+
+        return v in self._keys or v in self._values
+
+    def __getitem__(self, ix) -> Sequence:
         "Get item by index, key, or slice"
 
         return self.items(ix)
