@@ -59,6 +59,17 @@ class Trietor(Sequence):
 
         return (self._keys.pop(), self._values.pop(), self._data.pop())
 
+    def clear(self) -> Self:
+        "Clear all items"
+
+        self._keys.clear()
+        self._values.clear()
+        self._data.clear()
+
+        self._term = None
+
+        return self
+
     def terminate(self, data: Any = True) -> Self:
         "Add terminating data signifying complete sequence"
 
@@ -154,8 +165,8 @@ class Trietor(Sequence):
 
         # check for sequence of sequences
         if type(other) is not Trietor:
-                if type(other[0]) is str:
-                    other = [other]
+            if type(other[0]) is str:
+                other = [other]
 
             other = Trietor(other)
 
