@@ -30,7 +30,7 @@ class Trietor(Sequence):
 
         return Trietor(zip(self._keys, self._values, self._data), self._term)
 
-    def add(self, key: str|Sequence[Sequence[Any]], value: Any = None, data: Any = None) -> Self:
+    def add(self, key: str|Sequence[Sequence[Any]]|Trietor, value: Any = None, data: Any = None) -> Self:
         """
         Add key, value, data to collection.
 
@@ -148,6 +148,20 @@ class Trietor(Sequence):
         term = other._term
 
         return Trietor(zip(keys, values, data), term)
+
+    def __iadd__(self, other: Trietor|Sequence[Any]):
+        "Add right sequence to collection"
+
+        # check for sequence of sequences
+        if type(other) is not Trietor:
+                if type(other[0]) is str:
+                    other = [other]
+
+            other = Trietor(other)
+
+        self.append(other)
+
+        return self
 
     def __len__(self):
         "Return length of results"
