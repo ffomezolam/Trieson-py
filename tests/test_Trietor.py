@@ -1,177 +1,215 @@
 from context import Trietor
-
-from types import GeneratorType
+from context import items
 
 import unittest
 
 class TestTrietor(unittest.TestCase):
     def setUp(self):
-        self.T = Trietor()
+        self.T = Trietor.Trietor()
+
+    # --- ADD/REMOVE --------------------------------------------------------
 
     def test_add_single(self):
-        item = ['key', 'value', 'data']
+        item = items.ArbitraryItem('v', 'd', 'k')
 
-        self.T.add(*item)
+        self.T.add(item)
 
-        with self.subTest("length of each entry should be 1"):
-            self.assertEqual(len(self.T._keys), 1)
-            self.assertEqual(len(self.T._values), 1)
-            self.assertEqual(len(self.T._data), 1)
+        with self.subTest("length of items should be 1"):
+            self.assertEqual(len(self.T._items), 1)
 
         with self.subTest("first entry should equal item entry"):
-            self.assertEqual(self.T._keys[0], item[0])
-            self.assertEqual(self.T._values[0], item[1])
-            self.assertEqual(self.T._data[0], item[2])
+            self.assertEqual(self.T._items[0], item)
 
-    def test_add_mult(self):
-        titles = ['key','value','data']
+    def test_add_seq(self):
+        titles = ['value','data','key']
         entries = 3
-        items = [[title + str(n) for title in titles] for n in range(entries)]
+        itemz = [items.ArbitraryItem(*[title + str(n) for title in titles]) for n in range(entries)]
 
         with self.subTest("setup should be correct"):
-            self.assertEqual(items[0][0], 'key0')
-            self.assertEqual(items[0][1], 'value0')
-            self.assertEqual(items[0][2], 'data0')
+            self.assertEqual(itemz[0].key, 'key0')
+            self.assertEqual(itemz[0].value, 'value0')
+            self.assertEqual(itemz[0].data, 'data0')
 
         with self.subTest(f"should be {entries} items to add"):
-            self.assertEqual(len(items), entries)
+            self.assertEqual(len(itemz), entries)
 
-        self.T.add(items)
+        self.T.add(itemz)
 
-        with self.subTest(f"length of each entry should be {entries}"):
-            self.assertEqual(len(self.T._keys), entries)
-            self.assertEqual(len(self.T._values), entries)
-            self.assertEqual(len(self.T._data), entries)
+        with self.subTest(f"length of Trietor should be {entries}"):
+            self.assertEqual(len(self.T._items), entries)
 
         for i in range(entries):
             with self.subTest(f"entries should equal titles + {i}", i=i):
-                self.assertEqual(self.T._keys[i], items[i][0])
-                self.assertEqual(self.T._values[i], items[i][1])
-                self.assertEqual(self.T._data[i], items[i][2])
+                item = itemz[i]
+                titlez = { title: title + str(i) for title in titles }
+                for title in titles:
+                    self.assertEqual(getattr(item, title), titlez[title])
+
+    def test_add_Trietor(self):
+        entries = 3
+        newT = Trietor.Trietor([items.ArbitraryItem(*[title + str(i) for title in ['v','d','k']]) for i in range(entries)])
+
+        self.T.add(newT)
+
+        with self.subTest(f'should have {entries} items'):
+            self.assertEqual(len(self.T._items), entries)
+
+        for ix, item in enumerate(self.T._items):
+            with self.subTest(f'Item should have proper values'):
+                self.assertEqual(item.key, 'k' + str(ix))
+                self.assertEqual(item.value, 'v' + str(ix))
+                self.assertEqual(item.data, 'd' + str(ix))
 
     def test_pop(self):
-        titles = 'key', 'value', 'data'
+        titles = 'v', 'd', 'k'
         entries = 4
 
-        items = [[title + str(n) for title in titles] for n in range(entries)]
+        itemz = [items.ArbitraryItem(*[title + str(n) for title in titles]) for n in range(entries)]
 
-        self.T.add(items)
+        self.T.add(itemz)
 
         with self.subTest(f"Length should be {entries}"):
-            self.assertEqual(len(self.T), entries)
+            self.assertEqual(len(self.T._items), entries)
 
         item = self.T.pop()
 
         with self.subTest(f"pop() should reduce length by one"):
-            self.assertEqual(len(self.T), entries - 1)
+            self.assertEqual(len(self.T._items), entries - 1)
 
         with self.subTest(f"pop() should return last item"):
-            self.assertSequenceEqual(item, [title + str(entries - 1) for title in titles])
+            self.assertEqual(item, itemz[entries - 1])
 
-    def test_data_retrieval(self):
-        titles = 'key','value','data'
+    def test__len__(self):
+        entries = 3
+
+        self.T.add([items.CharItem('c' + str(n)) for n in range(entries)])
+
+        with self.subTest(f"__len__() should return {entries}"):
+            self.assertEqual(len(self.T), entries)
+
+    def test_copy(self):
+        entries = 5
+        self.T.add([items.CharItem('a' + str(n)) for n in range(entries)])
+
+        copy = self.T.copy()
+
+        with self.subTest("copy should be Trietor instance"):
+            self.assertIsInstance(copy, Trietor.Trietor)
+
+        with self.subTest("copy should have same length as original"):
+            self.assertEqual(len(self.T), len(copy))
+
+        for i in range(entries):
+            with self.subTest("copy item should equal original item"):
+                self.assertEqual(self.T._items[i], copy._items[i])
+
+    def test_clear(self):
         entries = 4
-        items = [[title + str(n) for title in titles] for n in range(entries)]
+        self.T.add([items.CharItem(str(i)) for i in range(entries)])
 
-        self.T.add(items)
+        with self.subTest(f'collection should have length {entries}'):
+            self.assertEqual(len(self.T), entries)
 
-        for method in 'keys','values','data','items':
-            m = getattr(self.T, method)
+        self.T.clear()
 
-            with self.subTest(f"{method}() without index should return generator"):
-                self.assertIsInstance(m(), GeneratorType)
+        with self.subTest(f'cleared collection should have length 0'):
+            self.assertEqual(len(self.T), 0)
 
-            with self.subTest(f"{method}() should return items in _{method}"):
-                if method != 'items':
-                    items = getattr(self.T, '_' + method)
-                    self.assertSequenceEqual(list(m()), items)
+        with self.subTest(f'cleared collection should have 0 items'):
+            self.assertEqual(len(self.T._items), 0)
 
-            for ix in range(entries):
-                with self.subTest(f"{method}({ix}) with index should return item at index {ix}"):
-                    if method != 'items':
-                        items = getattr(self.T, '_' + method)
-                        self.assertEqual(m(ix), items[ix])
+    # --- DATA --------------------------------------------------------------
 
-    def test_termination(self):
-        self.T.add('key', 'value', 'data')
+    def test_keys_values_data_items(self):
+        k = 'abcde'
+        v = range(5)
+        d = range(0,10,2)
 
-        with self.subTest("by default terminating data should be None"):
-            self.assertIsNone(self.T._term)
+        self.T.add([items.ArbitraryItem(val, data, key) for val, data, key in zip(v,d,k)])
 
-        with self.subTest("has_terminator() should be False if data is None"):
-            self.assertFalse(self.T.has_terminator())
+        with self.subTest("keys should return list of keys"):
+            self.assertSequenceEqual(self.T.keys, list(k))
 
-        with self.subTest("terminate() should add terminating data"):
-            self.T.terminate("OK")
-            self.assertEqual(self.T._term, "OK")
+        with self.subTest("values should return list of values"):
+            self.assertSequenceEqual(self.T.values, list(v))
 
-        with self.subTest("has_terminator() should be True if data is not None"):
-            self.assertTrue(self.T.has_terminator())
+        with self.subTest("data should return list of data"):
+            self.assertSequenceEqual(self.T.data, list(d))
 
-        with self.subTest("terminator() should return terminating data"):
-            self.assertEqual(self.T.terminator(), "OK")
+        with self.subTest("items should return list of items"):
+            self.assertSequenceEqual(self.T.items, [items.ArbitraryItem(val, data, key) for val, data, key in zip(v,d,k)])
+
+    def test__getitem__(self):
+        self.T.add([items.CharItem(c) for c in 'value vim'])
+
+        with self.subTest("should be able to get items by index"):
+            self.assertEqual(self.T[0], Trietor.Trietor(items.CharItem('v')))
+
+        with self.subTest("should be able to get items by slice"):
+            self.assertEqual(self.T[1:3], Trietor.Trietor([items.CharItem(c) for c in 'al']))
+
+        with self.subTest("should be able to get items by key"):
+            self.assertEqual(self.T['v'], Trietor.Trietor([items.CharItem(c) for c in 'vv']))
+
+    def test_has_key_value_data_item(self):
+        self.T.add([items.ArbitraryItem(v, d, k) for k, v, d in zip('value', 'apple', 'bored')])
+
+        with self.subTest("should fail if key not in collection"):
+            self.assertFalse(self.T.has_key('m'))
+
+        with self.subTest("should succeed if key in collection"):
+            self.assertTrue(self.T.has_key('v'))
+
+        with self.subTest("should fail if value not in collection"):
+            self.assertFalse(self.T.has_value('m'))
+
+        with self.subTest("should succeed if value in collection"):
+            self.assertTrue(self.T.has_value('p'))
+
+        with self.subTest("should fail if data not in collection"):
+            self.assertFalse(self.T.has_data('a'))
+
+        with self.subTest("should succeed if data in collection"):
+            self.assertTrue(self.T.has_data('b'))
+
+        with self.subTest("should fail if item not in collection"):
+            self.assertFalse(self.T.has_item(items.ArbitraryItem('z', 'b', 'v')))
+
+        with self.subTest("should succeed if item in collection"):
+            self.assertTrue(self.T.has_item(items.ArbitraryItem('a', 'b', 'v')))
+
+    def test__len__(self):
+        self.T.add([items.CharItem(c) for c in 'char'])
+        self.assertEqual(len(self.T), 4)
+
+    def test__eq__(self):
+        self.T.add([items.ArbitraryItem({ c: 1, 'r': 2 }) for c in 'happy'])
+        newT = Trietor.Trietor([items.ArbitraryItem({c:1, 'r':2}) for c in 'happy'])
+        difT = Trietor.Trietor([items.ArbitraryItem({ c: 1, 'r': 2}) for c in 'dappy'])
+
+        with self.subTest("collections with same keys, values, data, and order are equal"):
+            self.assertEqual(self.T, newT)
+
+        with self.subTest("collections with different items are not equal"):
+            self.assertNotEqual(self.T, difT)
+
+    def test_bool_implicit(self):
+        with self.subTest("empty object should return False"):
+            self.assertFalse(bool(self.T))
+
+        with self.subTest("non-empty object should return True"):
+            self.assertTrue(bool(self.T.add(items.CharItem('c'))))
+
+    # --- STRING REP --------------------------------------------------------
 
     def test_as_str(self):
         n = 10
 
         for i in range(n):
-            self.T.add(str(i), i, i*10)
+            self.T.add(items.ArbitraryItem(i, i*10, str(i)))
 
         with self.subTest("as_str should return concatenated keys"):
             self.assertEqual(self.T.as_str(), ''.join(str(x) for x in range(n)))
-
-    def test__add__(self):
-        t1 = Trietor([('key1', 'value1', 'data1')], 'term1')
-        t2 = Trietor([('key2', 'value2', 'data2')], 'term2')
-
-        tadd = t1 + t2
-
-        with self.subTest("length should be combined length"):
-            self.assertEqual(len(tadd), len(t1) + len(t2))
-
-        with self.subTest("terminal data should come from right operand"):
-            self.assertEqual(tadd._term, t2._term)
-
-        with self.subTest("keys should be concatenated"):
-            self.assertSequenceEqual(tadd._keys, t1._keys + t2._keys)
-
-        with self.subTest("values should be concatenated"):
-            self.assertSequenceEqual(tadd._values, t1._values + t2._values)
-
-        with self.subTest("data should be concatenated"):
-            self.assertSequenceEqual(tadd._data, t1._data + t2._data)
-
-    def test_magic(self):
-        titles = 'key','value','data'
-        entries = 4
-        items = [[title + str(n) for title in titles] for n in range(entries)]
-
-        self.T.add(items)
-
-        # __len__
-        with self.subTest(f"__len__() should return {entries}"):
-            self.assertEqual(len(self.T), entries)
-
-        # __getitem__
-        for n in range(entries):
-            with self.subTest(f"__getitem__() should return item at index {n}"):
-                self.assertSequenceEqual(self.T[n], [title + str(n) for title in titles])
-
-        # __iter__
-        with self.subTest(f"__iter__() should return generator"):
-            self.assertIsInstance(self.T.__iter__(), GeneratorType)
-
-        for count, item in enumerate(self.T):
-            with self.subTest(f"__iter__() should iterate over {item}"):
-                self.assertSequenceEqual(item, [title + str(count) for title in titles])
-
-    def test_bool_implicit(self):
-        with self.subTest("empty object should return False"):
-            self.assertFalse(bool(Trietor()))
-
-        with self.subTest("non-empty object should return True"):
-            self.assertTrue(bool(Trietor([('k','v','d')])))
-
 
 if __name__ == "__main__":
     unittest.main()

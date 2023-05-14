@@ -130,7 +130,7 @@ class Triesonode:
             weight: int|float = 1,
             *,
             key_func: Callable[[Any], str] = DEFAULT_KEY_FUNC,
-            exclude: Any = []
+            exclude: Optional[Any] = None
     ):
         """
         Return specified child node if exists. If no child node specified, get
@@ -159,6 +159,9 @@ class Triesonode:
 
         # no children? return None
         if not self._children: return None
+
+        # ensure exclude is a sequence
+        if not exclude: exclude = []
 
         # if no item provided, generate one selected from children
         if item is None:

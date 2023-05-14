@@ -392,11 +392,11 @@ class TestTrie(unittest.TestCase):
             with self.subTest("match should be in source list"):
                 self.assertIn(match.as_str(), [w.upper() for w in words if w.startswith('ap')])
 
-    @unittest.skip("unused")
     def test_make(self):
         words = ['any', 'and', 'arm', 'are', 'air', 'ago', 'age', 'bon', 'bog']
 
-        self.trie.add(words)
+        for word in words: self.trie.add(word)
+
         for _ in range(4):
             with self.subTest("should make full words if no prefix"):
                 self.assertIn(self.trie.make(), words)

@@ -3,6 +3,8 @@
 Trie class
 """
 
+from __future__ import annotations
+
 from typing import Optional, Any, Callable
 from collections.abc import Sequence
 
@@ -11,6 +13,7 @@ import logging
 from .Triesonode import Triesonode, DEFAULT_KEY_FUNC
 from .Trietor import Trietor
 from . import combos
+#from . import strategies
 
 #--- CONSTANTS --------------------------------------------------------------
 
@@ -182,7 +185,7 @@ class Trieson:
         "Get data associated with sequence items"
 
         # generate random sequence if not specified
-        if not seq: return self.make(proc = proc)
+        if seq is None: return self.make(proc = proc)
 
         # prepare container
         t = Trietor()
@@ -286,18 +289,19 @@ class Trieson:
                 yield prefix + sub
 
     def make(self,
-             prefix: str = '',
+             prefix: Sequence = [],
              weight: float|int = 1,
              lookahead: int = 0,
              *,
-             max_len: int = 0, # maximum word length
-             min_len: int = 0, # minimum word length
+             max_len: int = 0, # maximum output length
+             min_len: int = 0, # minimum output length
              strict: bool = True, # whether to be strict with endings
-             fail_str: str = '', # if set, prepend string instead of returning empty
-             end_chars: str = '' # character to interpret as an ending
-    ):
+             fail_item: Any = '', # if set, prepend item instead of returning empty
+             end_items: Sequence = '', # item(s) to interpret as an ending
+             proc: Optional[Callable[[Triesonode], Any]] = None
+    ) -> Trietor:
         """
-        Make a random word.
+        Make a random sequence.
 
         Uses node weights to weight the generator towards higher-frequency
         nodes. The `weight` parameter allows the degree of this weighing to
@@ -306,8 +310,8 @@ class Trieson:
         Positional Parameters
         =====================
 
-        prefix: [str]
-            Optional prefix string to use. Make will generate text starting
+        prefix: [Sequence]
+            Optional prefix sequence to use. Make will generate output starting
             after the prefix. No prefix will start from the trie root.
 
         weight: [float|int] (default 1)
@@ -315,72 +319,142 @@ class Trieson:
             2 is double weighting. Etc.
 
         lookahead: [int] (default 0)
-            Number of characters to use when choosing next node.
+            Number of items to use when choosing next node.
             This essentially acts as a `prefix` designator for the algorithm.
             At each step in the process, the algorithm will use the last
-            `lookahead` number of characters in the generated word to select
-            the next character. A `lookahead` of 0 will always use the whole
-            set of generated characters, effectively only generating words from
+            `lookahead` number of items in the generated word to select
+            the next item. A `lookahead` of 0 will always use the whole
+            set of generated items, effectively only generating sequences from
             the original set of inputs.
 
         Keyword Parameters
         ==================
 
         max_len: [int] (default 0)
-            Maximum generated word length. A 0 here acts as no maximum.
+            Maximum generated output length. A 0 here acts as no maximum.
 
         min_len: [int] (default 0)
-            Minimum generated word length. A 0 here acts as no minimum.
+            Minimum generated output length. A 0 here acts as no minimum.
 
         strict: [bool] (default True)
-            Whether to be strict with word endings. If the generator reaches
+            Whether to be strict with sequence endings. If the generator reaches
             `max_len` without getting a terminating node, it will return an
-            empty string if `strict` is `True`.
+            empty sequence if `strict` is `True`.
 
-        fail_str: [str] (default '')
-            If provided, instead of failing with an empty string, the failing
-            string will be returned with `fail_str` prepended.
+        fail_item: [Any] (default '')
+            If provided, instead of failing with an empty sequence, the failing
+            sequence will be returned with `fail_item` prepended.
 
-        end_chars: [str]
-            The algorithm will interpret the character specified in the
-            `end_chars` parameter as a terminating character, and will treat it
-            identically to the standard word-terminating node. By default
-            `end_chars` is disabled.
+        end_items: [Sequence]
+            The algorithm will interpret the item(s) specified in the
+            `end_items` parameter as terminating items, and will treat them
+            identically to the standard sequence-terminating node. By default
+            `end_items` is disabled.
         """
 
-        # handle instance where there are no entries in trie
-        if not len(self._root): return ''
+        # if no entries in trie, return empty result
+        if not len(self._root): return Trietor()
 
         # max_len can't be less than min_len unless it's 0
         if max_len and max_len < min_len:
             max_len, min_len = min_len, max_len # swap them
 
-        # characters will be stores as dict in form:
-        # { "char": <the character>, "tried": <children accessed from this character> }
+        # if prefix doesn't exist in trie, return empty result
+        if prefix and not has_prefix(prefix): return Trietor()
 
-        # helper function to generate word entries
-        def char(char):
-            return { "char": char, "tried": set() }
+        # get prefix items
+        prefix_items = self.get(prefix, partial=True) if prefix else Trietor()
 
-        # helper function to join characters
-        def join_word(word_list):
-            return ''.join([w['char'] for w in word_list])
+        # generated items will be stored in Trietor instance
+        generated_items = Trietor()
 
-        backtrack_count = 0
-        plist = [] # stores prefix characters
-        word = [char('')] # stores generated characters - starts with a dummy character
-        cache = '' # stores a copy of word in case of length failure
+        # reserve identifier for a copy of items necessary in certain instances
+        cached_items = None
 
-        # get starting node
-        node = self._get_node_at_prefix(prefix, lambda n: plist.append(char(n._value)))
+        # log start of algorithm
+        logging.debug(f'START: prefix {prefix_items.as_str()}')
 
-        # return if prefix doesn't exist in trie
-        if not node: return ''
+        # modified lookahead to preserve original setting
+        lookahead_mod = lookahead
 
-        logging.debug(f'START: prefix {join_word(plist)}')
+        count = 0
+        while count < 5:
+            # (1) INITIALIZE
 
-        lookahead = [lookahead for _ in range(2)]
+            # pre-calculate relevant sequence lengths
+            prefix_length = len(prefix_items)
+            generated_length = len(generated_items)
+            total_length = prefix_length + generated_length
 
+            # adjust lookahead - can't be more than word length
+            if lookahead_mod and lookahead_mod > total_length:
+                lookahead_mod = total_length
+
+            # set prefix based on lookahead
+            prefix = (prefix_items + generated_items).values()[-lookahead_mod:]
+
+            # log prefix at start of loop
+            logging.debug(f'> PREFIX: {prefix}')
+
+            # (2) GET STARTING NODE AND VALIDATE
+
+            # get node corresponding to last item of prefix
+            node = self._get_node_at_prefix(prefix)
+
+            # if invalid node, prefix does not exist in trie
+            if not node:
+                logging.debug(f'* no children for prefix {prefix} with lookahead {lookahead_mod}/{lookahead}')
+
+                # if lookahead is >= word length, then can't get any more items
+                if lookahead_mod >= total_length:
+                    logging.debug(f'* > lookahead is at maximum - operation failed')
+
+                    # if strict mode, then fail
+                    if strict:
+
+                        # if fail_item specified, return with fail_item prepended
+                        if fail_item and cached_items: pass # return fail item + prefix item + cache item
+
+                        # ...otherwise return empty result
+                        return Trietor()
+
+                    # ...otherwise return what we've got and call it a day
+                    else:
+                        pass
+
+                    break
+
+                # otherwise can try increasing lookahead to permit more choices
+                else:
+                    logging.debug(f'* > increasing effective lookahead from {lookahead_mod} to {lookahead_mod + 1}')
+
+                    lookahead_mod += 1
+
+                    continue
+
+            # ... otherwise node is valid - reset lookahead for next cycle
+            else:
+                logging.debug(f'* resetting lookahead from {lookahead_mod} to {lookahead}')
+                lookahead_mod = lookahead
+
+            # (4) GET NEXT NODE AND VALIDATE
+
+            logging.debug(f'> getting next node for prefix {prefix} and tried items <NOT IMPLEMENTED>')
+            node = node.get(weight=weight, exclude = None)
+
+            # if nothing returned then can't get any additional items from this
+            # prefix - have to try another option
+            if not node:
+                # remove item in hopes that previous item will have more options
+                pass
+                # continue
+
+            # (5) CHECK FOR STOP CONDITION
+
+            # debug
+            count += 1
+
+        """
         while True:
             # 0. word list needs at least one character otherwise no way to
             #    generate a complete word
@@ -388,7 +462,7 @@ class Trieson:
                 logging.debug(f'no further options for generation with min_len {min_len} and max_len {max_len}')
 
                 if strict:
-                    if fail_str and cache: return fail_str + prefix + cache
+                    if fail_item and cache: return fail_item + prefix + cache
                     return ''
                 else:
                     return prefix + cache
@@ -414,7 +488,7 @@ class Trieson:
                 if lookahead[1] >= len(word) - 1 + len(plist):
                     # can't get any more characters from the trie
                     if strict:
-                        if fail_str and cache: return fail_str + prefix + cache
+                        if fail_item and cache: return fail_item + prefix + cache
                         return ''
                     else:
                         return prefix + cache
@@ -463,7 +537,7 @@ class Trieson:
                 # reached maximum length and have a full word - we can end here
                 return join_word(plist + word)
 
-            elif node.is_terminator() or (end_chars and node._value in end_chars):
+            elif node.is_terminator() or (end_items and node._value in end_items):
                 # at terminating node - check if we can end here
                 logging.debug(f'reached terminating node at prefix {prefix}')
 
@@ -495,6 +569,7 @@ class Trieson:
 
                 logging.debug(f'made word "{join_word(plist + word)}"')
                 return join_word(plist + word)
+        """
 
     def depth(self):
         "Get trie depth"
@@ -528,6 +603,11 @@ class Trieson:
 
         for s in self.substrings():
             yield s
+
+    def __bool__(self):
+        "Considered True if has entries, False otherwise"
+
+        return bool(len(self))
 
     # STRING -----------------------------------------------------------------
 
