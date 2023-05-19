@@ -1,7 +1,9 @@
 """ trie.py
 -----------------
-Basic trie implementation
+Basic trie implementations
 """
+
+# SIMPLE TRIE ---------------------------------------------------------------
 
 class Trie:
     def __init__(self):

@@ -8,8 +8,8 @@ class TestDataItem(unittest.TestCase):
         self.item = items.DataItem(self.data)
 
     def test(self):
-        with self.subTest("key should be None"):
-            self.assertIsNone(self.item.key)
+        with self.subTest("key should be empty string"):
+            self.assertEqual(self.item.key, '')
 
         with self.subTest("value should be None"):
             self.assertIsNone(self.item.value)
@@ -80,6 +80,46 @@ class TestArbitraryItem(unittest.TestCase):
 
             with self.subTest("should generate key from function"):
                 self.assertEqual(i.key, f(s))
+
+class TestItemFactory(unittest.TestCase):
+    def setUp(self):
+        self.factory = items.ItemFactory()
+
+    def test_create(self):
+        with self.subTest("DataItem"):
+            item = self.factory.create(data = 'd')
+            self.assertIsInstance(item, items.DataItem)
+            self.assertEqual(item.key, '')
+
+        with self.subTest("CharItem"):
+            item = self.factory.create('c')
+            self.assertIsInstance(item, items.CharItem)
+            self.assertEqual(item.key, 'c')
+
+        with self.subTest("StringItem"):
+            item = self.factory.create('string')
+            self.assertIsInstance(item, items.StringItem)
+            self.assertEqual(item.key, 'string')
+
+        with self.subTest("ArbitraryItem"):
+            item = self.factory.create(True, False, 'key')
+            self.assertIsInstance(item, items.ArbitraryItem)
+            self.assertEqual(item.key, 'key')
+
+        with self.subTest("Callable key"):
+            item = self.factory.create('bob', key=lambda x: x.upper())
+            self.assertIsInstance(item, items.ArbitraryItem)
+            self.assertEqual(item.key, 'BOB')
+
+    def test_get(self):
+        self.factory.create('c')
+
+        with self.subTest("Should get item if in pool"):
+            self.assertIsInstance(self.factory.get('c'), items.CharItem)
+            self.assertEqual(self.factory.get('c').key, 'c')
+
+        with self.subTest("Should return None if item not in pool"):
+            self.assertIsNone(self.factory.get('z'))
 
 if __name__ == "__main__":
     unittest.main()

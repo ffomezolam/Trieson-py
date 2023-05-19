@@ -4,31 +4,126 @@ Exports Trie Node class
 """
 
 from __future__ import annotations
-from typing import Optional, Any, Callable, Iterable
-from types import FunctionType
+
+from typing import TYPE_CHECKING, Optional, Any, Callable, Self
+from abc import ABC, abstractmethod
+
 import random
 
-TERMINATOR = ''
-DEFAULT_KEY_FUNC = lambda x: x.__repr__()
+from .items import create_item, AbstractItem, DataItem
+#from .visitors import Visitable, AbstractNodeVisitor
+from .traversers import Traversable, AbstractTraverser, CallableTraverser
 
-###--- HELPERS --------------------------------------------------------------
+TERMINATOR = DataItem.key_default
 
-def is_primitive(item = None):
-    "Helper function to determine whether item is simple primitive type"
+###--- ABSTRACT BASE CLASS --------------------------------------------------
 
-    return type(item) in (str, int, float, bool)
+class AbstractTriesonode(ABC, Traversable):
+    def __init__(self, parent: Optional[Triesonode] = None, item: Optional[AbstractItem] = None):
 
-def make_key(item, key_func: Callable[[Any], str] = DEFAULT_KEY_FUNC):
-    "Helper function to return string representation of item"
+        # set item to `item` or use `item` as argument to DataItem constructor
+        self._item: AbstractItem = item if isinstance(item, AbstractItem) else DataItem(item)
 
-    if item is None: return None
+        # all nodes start with count 1
+        self._count: int = 1
 
-    if is_primitive(item): return str(item)
-    else: return key_func(item)
+        # node parent is optional - if None means this is root node
+        self._parent: Optional[Triesonode] = parent
+
+        # dictionary of child nodes
+        self._children: dict = {}
+
+    @property
+    def item(self):
+        return self._item
+
+    @property
+    def count(self):
+        return self._count
+
+    @count.setter
+    def count(self, n: int):
+        self._count = n
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @property
+    def children(self):
+        return self._children
+
+    @property
+    def key(self):
+        return self.item.key
+
+    @property
+    def value(self):
+        return self.item.value
+
+    @property
+    def data(self):
+        return self.item.data
+
+    @data.setter
+    def data(self, data: Any):
+        self.item.data = data
+
+    @abstractmethod
+    def add(self, item: AbstractItem):
+        pass
+
+    @abstractmethod
+    def has(self, key: str):
+        pass
+
+    @abstractmethod
+    def get(self, key: str):
+        pass
+
+    @abstractmethod
+    def terminate(self, data: Any):
+        pass
+
+    def is_terminator(self):
+        return False
+
+    def has_terminator(self):
+        return TERMINATOR in self.children
+
+    def get_terminator(self):
+        if self.has_terminator(): return self.children[TERMINATOR]
+
+        return None
+
+    def __len__(self):
+        "Number of children"
+
+        return len(self.children)
+
+    def __bool__(self):
+        "Always returns True"
+
+        return True
+
+    def __iter__(self):
+        "Iterator over children"
+
+        return (childnode for childnode in self.children.values())
+
+    def __repr__(self):
+        "String format"
+
+        return f'{type(self).__name__}({repr(self.parent)}, {repr(self.item)})'
+
+    def __str__(self):
+        "Pretty string format"
+
+        return f'{type(self).__name__} <{self.value}> x {self.count}, {len(self.children)} children: {list(self.children.keys())}'
 
 ###--- TRIESONODE CLASS -----------------------------------------------------
 
-class Triesonode:
+class Triesonode(AbstractTriesonode):
     """
     Represents a node in the Trieson trie. Contains low-level methods for
     manipulating the trie on a node-by-node basis. Includes methods for:
@@ -38,7 +133,7 @@ class Triesonode:
     - Getting and setting node data
 
     Constructor Parameters
-    ==========
+    ======================
 
     value: Any
         Item value
@@ -49,64 +144,54 @@ class Triesonode:
 
     #--- CONSTRUCTOR --------------------------------------------------------
 
-    def __init__(self,
-                 parent: Optional[Triesonode] = None,
-                 value: Any = '',
-                 data: Optional[Any] = None,
-                 *,
-                 # can avoid call overhead by passing key string directly
-                 key: str|Callable[[Any], str] = DEFAULT_KEY_FUNC
-    ):
-        self._key = key if type(key) is str else make_key(value, key)
-        self._value = value
-        self._data = data
+        # __init__() inherited
 
-        self._count = 1
+    #--- PROPERTIES ---------------------------------------------------------
 
-        self._children: dict = {}
-        self._parent = parent
+        # inherited:
+        # item
+        # count
+        # parent
+        # children
+        # key
+        # value
+        # data
 
     #--- GET/SET ------------------------------------------------------------
 
-    def add(self, item: Any, chain: bool = True,
+    def add(self,
+            item: AbstractItem = None,
             *,
-            key_func: Callable[[Any], str] = DEFAULT_KEY_FUNC,
-            data: Any = None
-    ):
+            chain: bool = True,
+    ) -> Triesonode|Self:
         "Add item to children and return added node"
 
-        # generate key
-        key = make_key(item, key_func)
+        # add terminating node if no item
+        if not item: item = DataItem()
+
+        key = item.key
 
         # if key already exists, increment count, else add new node
-        if key in self._children:
-            self._children[key]._count += 1
+        if key in self:
+            self[key].count += 1
         else:
-            self._children[key] = Triesonode(self, item, data, key=key)
+            self[key] = Triesonode(self, item)
 
         # return child if chaining...
-        if chain: return self._children[key]
+        if chain: return self[key]
 
         # ... or set chain to False to get same node back
         return self
 
-    def terminate(self, data = None):
-        "Add a terminating node to children"
+    def __contains__(self, char) -> bool:
+        "See if char in children"
 
-        # if no terminating node, create one, else update count and data
-        if TERMINATOR not in self._children:
-            self._children[TERMINATOR] = TriesonodeTerminator(self, data)
-        else:
-            self._children[TERMINATOR]._count += 1
-            if data:
-                self._children[TERMINATOR].data(data)
+        return self.has(char)
 
     def has(self,
-            item: Optional[Any] = None,
-            n: int = 0,
-            *,
-            key_func: Callable[[Any], str] = DEFAULT_KEY_FUNC
-    ):
+            key: str|AbstractItem = None,
+            n: int = 0
+    ) -> bool:
         """
         Check if child node exists. Can pass integer (positive or negative) to
         limit success to children that have at least or at most that count.
@@ -114,252 +199,147 @@ class Triesonode:
         If no char specified, get list of all child keys.
         """
 
-        if item is None: return list(self._children.keys())
+        if not self.children: return False
 
-        key = make_key(item, key_func)
+        if key is None: return list(self.children.values())
+
+        if isinstance(key, AbstractItem): key = key.key
 
         # standard return
-        if not n: return key in self._children
+        if not n: return key in self.children
+
         # bonus 1: return if count is at most n
-        elif n < 0: return key in self._children and self._children[key]._count <= -n
+        elif n < 0: return key in self.children and self.children[key].count <= -n
+
         # bonus 2: return only if count is at least n
-        else: return key in self._children and self._children[key]._count >= n
+        else: return key in self.children and self.children[key].count >= n
+
+    def __getitem__(self, key: str|AbstractItem) -> Triesonode:
+        "Get child by bracket indexing"
+
+        return self.get(key)
+
+    def __setitem__(self, key: str|AbstractItem, node: Triesonode):
+        "Set child"
+
+        if isinstance(key, AbstractItem): key = key.key
+
+        self.children[key] = node
 
     def get(self,
-            item: Any = None,
-            weight: int|float = 1,
+            key: str|AbstractItem = None,
             *,
-            key_func: Callable[[Any], str] = DEFAULT_KEY_FUNC,
-            exclude: Optional[Any] = None
+            weight: int|float = 1,
+            exclude: Optional[str|AbstractItem|Sequence[str|AbstractItem]] = None
     ):
         """
         Return specified child node if exists. If no child node specified, get
         a random child node by relative child counts.
 
-        Can exclude children by passing optional `exclude_chars` argument
-        containing an iterable of items or item keys to exclude.
+        Can exclude children by passing optional `exclude` argument
+        containing a sequence of items to exclude.
 
         Parameters
         ==========
 
-        item: [Any]
-            Item to get. Returns None if item doesn't exist. If no item
+        key: [str|AbstractItem]
+            Item to get (by key). Returns None if item doesn't exist. If no item
             specified, returns a random item.
 
         weight: int|float (default 1)
             Weight for the random selector. 1 is normal weight, 2 is double, 0
             is all even weighting, etc.
 
-        key_func: callable (default calls __repr__() method of `item`)
-            Function to convert non-primitive item into a string to use as key
-
-        exclude: [Any] (default [])
-            Items or keys to exclude from the pool of available children
+        exclude: [str|AbstractItem|Sequence] (default [])
+            Keys to exclude from the pool of available children
         """
 
         # no children? return None
-        if not self._children: return None
+        if not self.children: return None
 
-        # ensure exclude is a sequence
-        if not exclude: exclude = []
+        if isinstance(key, AbstractItem): key = key.key
 
         # if no item provided, generate one selected from children
-        if item is None:
+        if key is None:
+
+            # convert to sequence
+            match exclude:
+                case None: exclude = []
+                case str(): exclude = [c for c in exclude]
+                case AbstractItem(): exclude = [exclude.key]
+
+            # create exclusion set from keys
+            exclude = {i.key if isinstance(i, AbstractItem) else i for i in exclude}
+
             # get children that aren't excluded
-            children = [childnode for childnode in self.children() if childnode.key() not in exclude and childnode.value() not in exclude]
+            children = [childnode for childnode in self if childnode.key not in exclude]
 
             # return None if all are excluded or no children
             if not children: return None
 
             # get weights of retrieved children
-            weights = [childnode.count() ** weight for childnode in children]
+            weights = [childnode.count ** weight for childnode in children]
 
             # select node by weighted random choice
             return random.choices(children, weights)[0]
 
         # ... otherwise get item as string and return corresponding node
         else:
-            key = make_key(item, key_func)
+            return self.children[key]
 
-            return self.children(key)
+    #--- TERMINATING/LEAF NODES ---------------------------------------------
 
-    def key(self):
-        "Get key associated with node"
+    def terminate(self, data: Any = None):
+        "Add a terminating node to children"
 
-        return self._key
+        item = DataItem(data)
 
-    def value(self):
-        "Get value associated with node"
-
-        return self._value
-
-    def data(self, data: Any = None):
-        """
-        Get or set data for node
-
-        Pass a function to manipulate existing data.
-        """
-
-        if data is None: return self._data
-
-        if isinstance(data, FunctionType):
-            # call function on data
-            self._data = data(self._data)
+        # if no terminating node, create one, else update count and data
+        if not self.has_terminator():
+            self.children[TERMINATOR] = TriesonodeTerminator(self, item)
         else:
-            # set data to new value
-            self._data = data
+            self.children[TERMINATOR].count += 1
 
-        return self
+            # TODO allow callable to transform data
+            if data:
+                self.children[TERMINATOR].data = data
 
-    def count(self):
-        "Get value count"
-
-        return self._count
-
-    def children(self, key: Optional[str|Sequence] = None):
-        "Get single child, multiple children, or all child nodes as list"
-
-        # No argument - return all child nodes
-        if key is None:
-            return list(self._children.values())
-
-        # string argument - return single child or None if not in children
-        if type(key) is str:
-            return self._children[key] if key in self._children else None
-
-        # iterable argument - return all specified children
-        else:
-            return [self._children[k] for k in key if k in self._children]
-
-        return None
-
-    def parent(self):
-        "Return parent node; will return None if root"
-
-        return self._parent
-
-    def is_terminator(self):
-        "Check if this is a terminating node"
-        return False
+    # is_terminator() inherited
 
     def has_terminator(self):
         "True if terminating node is a child"
-        return TERMINATOR in self
 
-    def get_terminator(self):
-        "Get terminator child if exists or None"
-        return self[TERMINATOR] if TERMINATOR in self else None
+        return TERMINATOR in self and isinstance(self[TERMINATOR], TriesonodeTerminator)
 
-    #--- TRAVERSAL ---------------------------------------------------------
-
-    def traverse(self, pre=None, post=None):
-        "Recursive depth-first traversal over all nodes"
-        for node in self._children:
-            child = self._children[node]
-
-            # preprocess if exists
-            if pre: pre(child)
-
-            yield child
-            if not child.is_terminator():
-                yield from child.traverse(pre, post)
-
-            # postprocess if exists
-            if post: post(child)
-
-    #--- SPECIAL INFO -------------------------------------------------------
-
-    def __len__(self):
-        "Number of children"
-        return len(self._children)
-
-    def __contains__(self, char):
-        "See if char in children"
-        return self.has(char)
-
-    def __bool__(self):
-        "Always true, to allow get() to return falsey if no child exists"
-        return True
-
-    #--- SPECIAL ACCESSORS --------------------------------------------------
-
-    def __getitem__(self, char):
-        "Get child by bracket indexing. Alias for self.get(char)"
-        return self.get(char)
-
-    def __iter__(self):
-        "Iterator over children"
-        for child in self._children.values():
-            yield child
-
-    def __call__(self):
-        "call returns value"
-        return self._value
-
-    #--- STRING REPRESENTATION ----------------------------------------------
-
-    def __repr__(self):
-        "String format"
-        return f'{self}'
-
-    def __str__(self):
-        "Pretty string format"
-        return f'Triesonode <{self._value}> x {self._count}, {len(self._children)} children: {list(self._children.keys())}'
+    # get_terminator() inherited
 
 ###--- TRIESONODETERMINATOR CLASS -------------------------------------------
 
-class TriesonodeTerminator(Triesonode):
+class TriesonodeTerminator(AbstractTriesonode):
     """
     Represents a terminating node in a trie.
 
     A terminating node has no children and no value, but can hold data.
     """
 
-    def __init__(self, parent: Optional[Triesonode] = None, data = True):
-        self._key = ''
-        self._value = ''
-        self._count = 1
-        self._parent = parent
-        self._data = None
-        self._children: dict = {}
+    def __init__(self, parent: Optional[Triesonode] = None, data: Any = True):
 
-        self.data(data)
+        # Terminating node only supports DataItem
+        if isinstance(data, AbstractItem): data = DataItem(data)
 
-    def add(self):
-        pass
+        super().__init__(parent, data)
 
-    def terminate(self, unused):
-        pass
+    def add(self, *args, **kwargs):
+        return self
 
-    def get(self):
-        pass
+    def has(self, *args, **kwargs):
+        return False
 
-    def has(self):
-        pass
+    def get(self, *args, **kwargs):
+        return None
 
-    def children(self):
-        pass
-
-    def traverse(self, unused_pre, unused_post):
-        yield self
+    def terminate(self, data: Any):
+        return self
 
     def is_terminator(self):
         return True
-
-    def __len__(self):
-        pass
-
-    def __contains__(self, unused):
-        pass
-
-    def __getitem__(self, unused):
-        pass
-
-    def __iter__(self):
-        pass
-
-    def __call__(self):
-        return None
-
-    def __str__(self):
-        return f'TriesonodeTerminator data: {self._data}'

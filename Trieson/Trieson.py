@@ -10,7 +10,7 @@ from collections.abc import Sequence
 
 import logging
 
-from .Triesonode import Triesonode, DEFAULT_KEY_FUNC
+from .Triesonode import Triesonode
 from .Trietor import Trietor
 from . import combos
 #from . import strategies
@@ -65,7 +65,7 @@ class Trieson:
                  proc_args: list|tuple = [],
                  proc_kwargs: dict = {},
                  *,
-                 key_func: Callable[[Any], str] = DEFAULT_KEY_FUNC
+                 key_func: Callable[[Any], str] = None
     ):
         self._root = Triesonode()
         self._depth = 0
@@ -75,12 +75,11 @@ class Trieson:
             "args": proc_args,
             "kwargs": proc_kwargs
         }
-        self._key_func = key_func
 
     # GET/SET/QUERY METHODS --------------------------------------------------
 
     def add(self,
-            sequence: Any,
+            seq: Sequence,
             # TODO: extend to allow per-node data
             data: Any = True,
             *,
@@ -124,13 +123,13 @@ class Trieson:
         key_func = key_func or self._key_func
 
         # add sequence as string to dict
-        self.dict.add(sequence if type(sequence) is str else ''.join(key_func(item) for item in sequence))
+        self.dict.add(seq if type(seq) is str else ''.join(key_func(item) for item in seq))
 
         # apply proc function to sequence
-        sequence = [ps for ps in proc(sequence, *proc_args, **proc_kwargs)]
+        seq = [ps for ps in proc(seq *proc_args, **proc_kwargs)]
 
         # add items for each sequence
-        for subseq in sequence:
+        for subseq in seq:
             node = self._root
             depth = 0
 
