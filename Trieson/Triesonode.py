@@ -5,24 +5,31 @@ Exports Trie Node class
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Any, Callable, Self
+from typing import TYPE_CHECKING, Optional, Any, Self
 from abc import ABC, abstractmethod
+from collections.abc import Collection, Callable
 
 import random
 
-from .items import create_item, AbstractItem, DataItem
-#from .visitors import Visitable, AbstractNodeVisitor
-from .traversers import Traversable, AbstractTraverser, CallableTraverser
+from .vessels import VesselFactory
+from .traversers import Traversable
 
-TERMINATOR = DataItem.key_default
+LEAF_KEY = ''
 
 ###--- ABSTRACT BASE CLASS --------------------------------------------------
 
 class AbstractTriesonode(ABC, Traversable):
-    def __init__(self, parent: Optional[Triesonode] = None, item: Optional[AbstractItem] = None):
 
-        # set item to `item` or use `item` as argument to DataItem constructor
-        self._item: AbstractItem = item if isinstance(item, AbstractItem) else DataItem(item)
+    def __init__(self,
+                 parent: Optional[Triesonode] = None,
+                 value: Any = None,
+                 data: Any = None,
+                 *,
+                 factory: VesselFactory = VesselFactory(cache = False)
+    ):
+
+        # set item to `item`
+        self._item = factory(value, data)
 
         # all nodes start with count 1
         self._count: int = 1
@@ -59,18 +66,15 @@ class AbstractTriesonode(ABC, Traversable):
 
     @property
     def value(self):
-        return self.item.value
+        return self.item
 
     @property
+    @abstractmethod
     def data(self):
-        return self.item.data
-
-    @data.setter
-    def data(self, data: Any):
-        self.item.data = data
+        pass
 
     @abstractmethod
-    def add(self, item: AbstractItem):
+    def add(self, item):
         pass
 
     @abstractmethod
@@ -89,10 +93,10 @@ class AbstractTriesonode(ABC, Traversable):
         return False
 
     def has_terminator(self):
-        return TERMINATOR in self.children
+        return LEAF_KEY in self.children
 
     def get_terminator(self):
-        if self.has_terminator(): return self.children[TERMINATOR]
+        if self.has_terminator(): return self.children[LEAF_KEY]
 
         return None
 
@@ -136,7 +140,7 @@ class Triesonode(AbstractTriesonode):
     ======================
 
     value: Any
-        Item value
+        Vessel value
 
     data: [Any] (default None)
         Data to associate with item
@@ -155,21 +159,29 @@ class Triesonode(AbstractTriesonode):
         # children
         # key
         # value
-        # data
+
+    @property
+    def data(self):
+        """
+        On a node will return terminating node's data only if a leaf node exists.
+        """
+        if self.has_terminator(): return self.get_terminator().data
+
+        return None
 
     #--- GET/SET ------------------------------------------------------------
 
     def add(self,
-            item: AbstractItem = None,
+            item: Any = None,
             *,
             chain: bool = True,
     ) -> Triesonode|Self:
         "Add item to children and return added node"
 
         # add terminating node if no item
-        if not item: item = DataItem()
+        if not item: return self.terminate()
 
-        key = item.key
+        key = genkey(item)
 
         # if key already exists, increment count, else add new node
         if key in self:
@@ -183,13 +195,8 @@ class Triesonode(AbstractTriesonode):
         # ... or set chain to False to get same node back
         return self
 
-    def __contains__(self, char) -> bool:
-        "See if char in children"
-
-        return self.has(char)
-
     def has(self,
-            key: str|AbstractItem = None,
+            key: Any = None,
             n: int = 0
     ) -> bool:
         """
@@ -199,11 +206,14 @@ class Triesonode(AbstractTriesonode):
         If no char specified, get list of all child keys.
         """
 
+        # no children
         if not self.children: return False
 
-        if key is None: return list(self.children.values())
+        # no key specified
+        if key is None: return False
 
-        if isinstance(key, AbstractItem): key = key.key
+        # convert key to string representation
+        key = DEFAULT_KEY_FUNC(key)
 
         # standard return
         if not n: return key in self.children
@@ -214,23 +224,12 @@ class Triesonode(AbstractTriesonode):
         # bonus 2: return only if count is at least n
         else: return key in self.children and self.children[key].count >= n
 
-    def __getitem__(self, key: str|AbstractItem) -> Triesonode:
-        "Get child by bracket indexing"
-
-        return self.get(key)
-
-    def __setitem__(self, key: str|AbstractItem, node: Triesonode):
-        "Set child"
-
-        if isinstance(key, AbstractItem): key = key.key
-
-        self.children[key] = node
-
     def get(self,
-            key: str|AbstractItem = None,
+            key: Any = None,
             *,
             weight: int|float = 1,
-            exclude: Optional[str|AbstractItem|Sequence[str|AbstractItem]] = None
+            exclude: Optional[Any|Sequence[Any]] = None,
+            split_str: bool = True
     ):
         """
         Return specified child node if exists. If no child node specified, get
@@ -242,34 +241,43 @@ class Triesonode(AbstractTriesonode):
         Parameters
         ==========
 
-        key: [str|AbstractItem]
-            Item to get (by key). Returns None if item doesn't exist. If no item
+        key:
+            Vessel to get (by key). Returns None if item doesn't exist. If no item
             specified, returns a random item.
 
-        weight: int|float (default 1)
+        weight: (default 1)
             Weight for the random selector. 1 is normal weight, 2 is double, 0
             is all even weighting, etc.
 
-        exclude: [str|AbstractItem|Sequence] (default [])
+        exclude: (default [])
             Keys to exclude from the pool of available children
+
+        split_str: (default True)
+            Automatically split string into characters
         """
 
         # no children? return None
         if not self.children: return None
 
-        if isinstance(key, AbstractItem): key = key.key
-
-        # if no item provided, generate one selected from children
+        # if no item provided, generate one selected from children...
         if key is None:
 
-            # convert to sequence
+            # convert exclusion set to sequence
             match exclude:
-                case None: exclude = []
-                case str(): exclude = [c for c in exclude]
-                case AbstractItem(): exclude = [exclude.key]
+                case None:
+                    exclude = []
+                case str():
+                    if split_str:
+                        exclude = [c for c in exclude]
+                    else:
+                        exclude = [exclude]
+                case Collection():
+                    exclude = [DEFAULT_KEY_FUNC(c) for c in exclude]
+                case _:
+                    exclude = [DEFAULT_KEY_FUNC(exclude)]
 
             # create exclusion set from keys
-            exclude = {i.key if isinstance(i, AbstractItem) else i for i in exclude}
+            exclude = {i for i in exclude}
 
             # get children that aren't excluded
             children = [childnode for childnode in self if childnode.key not in exclude]
@@ -283,37 +291,60 @@ class Triesonode(AbstractTriesonode):
             # select node by weighted random choice
             return random.choices(children, weights)[0]
 
-        # ... otherwise get item as string and return corresponding node
-        else:
+        # ... otherwise get item key as string
+        key = DEFAULT_KEY_FUNC(key)
+
+        # if key exists return the node
+        if self.has(key):
             return self.children[key]
+
+        # return None if no child found
+        return None
+
+    def __contains__(self, char) -> bool:
+        "See if char in children"
+
+        return self.has(char)
+
+    def __getitem__(self, key: Any) -> Triesonode:
+        "Get child by bracket indexing"
+
+        return self.get(key)
+
+    def __setitem__(self, key: str, node: Triesonode):
+        "Set child"
+
+        self.children[key] = node
 
     #--- TERMINATING/LEAF NODES ---------------------------------------------
 
     def terminate(self, data: Any = None):
         "Add a terminating node to children"
 
-        item = DataItem(data)
-
         # if no terminating node, create one, else update count and data
         if not self.has_terminator():
-            self.children[TERMINATOR] = TriesonodeTerminator(self, item)
+            self.children[LEAF_KEY] = TriesonodeTerminator(self, data)
         else:
-            self.children[TERMINATOR].count += 1
+            self.children[LEAF_KEY].count += 1
 
-            # TODO allow callable to transform data
-            if data:
-                self.children[TERMINATOR].data = data
+        if data is not None:
+            self.children[LEAF_KEY].data = data
+
+        return self
 
     # is_terminator() inherited
 
     def has_terminator(self):
         "True if terminating node is a child"
 
-        return TERMINATOR in self and isinstance(self[TERMINATOR], TriesonodeTerminator)
+        return LEAF_KEY in self and isinstance(self[LEAF_KEY], TriesonodeTerminator)
 
     # get_terminator() inherited
 
 ###--- TRIESONODETERMINATOR CLASS -------------------------------------------
+
+class TriesonodeTerminatorError(Exception):
+    pass
 
 class TriesonodeTerminator(AbstractTriesonode):
     """
@@ -324,12 +355,26 @@ class TriesonodeTerminator(AbstractTriesonode):
 
     def __init__(self, parent: Optional[Triesonode] = None, data: Any = True):
 
-        # Terminating node only supports DataItem
-        if isinstance(data, AbstractItem): data = DataItem(data)
+        super().__init__(parent)
 
-        super().__init__(parent, data)
+        self._data = data # terminating node data, not associated with item
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, data: Any):
+        match data:
+            case Callable():
+                self._data = data(self._data)
+            case _:
+                self._data = data
 
     def add(self, *args, **kwargs):
+        """
+        Cannot add nodes to a terminating node. Will raise an exception.
+        """
         return self
 
     def has(self, *args, **kwargs):

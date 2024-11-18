@@ -1,0 +1,3 @@
+[submodule "Trieson/comboster"]
+	path = Trieson/comboster
+	url = git@github.com:ffomezolam/comboster-py.git

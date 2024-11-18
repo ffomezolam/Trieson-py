@@ -11,8 +11,10 @@ from collections.abc import Sequence
 import logging
 
 from .Triesonode import Triesonode
-from .Trietor import Trietor
-from . import combos
+from .Vein import Vein
+from .comboster import seq_to_end
+from .traversers import SequenceTraverser, RandomTraverser
+from .vessels import DEFAULT_KEY_FUNC
 #from . import strategies
 
 #--- CONSTANTS --------------------------------------------------------------
@@ -27,7 +29,7 @@ def format_return_item_spec(return_items: str|Sequence[str] = 'v', as_str: bool 
     return_items = [i[0].lower() for i in return_items if i.startswith(ITEM_SPEC_CHARS)]
 
     # as_str must be false if we have more than one item or first item is not k
-    if len(return_items) == 1 and return_items[0] != 'k': as_str = False
+    if len(return_items) > 1 or return_items[0] != 'k': as_str = False
 
     return return_items, as_str
 
@@ -43,7 +45,7 @@ class Trieson:
     arbitrary data type, whether separate or mixed. Keys are automatically
     generated from objects via a specified function (`__repr__()` by default)
     unless the added data is a string, in which event the string is both the
-    key and the value. Items may be obtained by key or value.
+    key and the value. Vessels may be obtained by key or value.
 
     Constructor Parameters
     ----------------------
@@ -61,26 +63,41 @@ class Trieson:
     # CONSTRUCTOR ------------------------------------------------------------
 
     def __init__(self,
-                 proc = None,
+                 proc: Optional[Callable[[Sequence], Sequence]] = None,
                  proc_args: list|tuple = [],
                  proc_kwargs: dict = {},
                  *,
-                 key_func: Callable[[Any], str] = None
+                 cache = True,
+                 key_func = None
     ):
+        # root node
         self._root = Triesonode()
+
+        # depth of tree
         self._depth = 0
+
+        # dictionary of complete sequences added
         self.dict = set()
+
+        # preprocessing function
         self._proc = {
             "proc": proc or combos.seq_to_end,
             "args": proc_args,
             "kwargs": proc_kwargs
         }
 
+        #self.factory = VesselFactory(cache = cache)
+
+        self._key_func = key_func or DEFAULT_KEY_FUNC
+
+    @property
+    def root(self):
+        return self._root
+
     # GET/SET/QUERY METHODS --------------------------------------------------
 
     def add(self,
             seq: Sequence,
-            # TODO: extend to allow per-node data
             data: Any = True,
             *,
             proc: Optional[Callable[[Sequence[Any], ...], Sequence[Any]]] = None,
@@ -91,6 +108,13 @@ class Trieson:
         """
         Add sequence to Trie, associate with data.
 
+        The sequence is further split according to a `proc` function, which
+        generates subsequences to be added to the trie.
+
+        All subsequences will be split into individual items, which are added
+        to the trie sequentially. E.g. strings will be split into letters, and
+        each letter will be added in turn.
+
         Parameters
         ==========
         data: Any (default True)
@@ -98,7 +122,7 @@ class Trieson:
 
         Keyword-Only Parameters
         -----------------------
-        proc: [Callable] (default None)
+        proc: [Callable] (default None (all sequences to end of minimum length 2))
             Optional procedure to call on sequence before adding to trie. Must
             accept sequence as first argument and return a list of sequences to
             add.
@@ -109,41 +133,51 @@ class Trieson:
         proc_kwargs: [dict] (default {})
             Optional additional keyword arguments to `proc`.
 
-        key_func: [Callable] (default __repr__())
+        key_func: [Callable] (default str())
             Optional procedure to convert sequence item to string key. This is
             called on each item in the sequence.
         """
 
-        # default proc if none
+        # default proc if none - all sequences to end of minimum length 2
         proc = proc or self._proc['proc']
         proc_args = proc_args or self._proc['args']
         proc_kwargs = proc_kwargs or self._proc['kwargs']
 
         # default key_func if none
-        key_func = key_func or self._key_func
+        key_func = None if isinstance(seq, str) else (key_func or self._key_func)
 
-        # add sequence as string to dict
-        self.dict.add(seq if type(seq) is str else ''.join(key_func(item) for item in seq))
+        # add sequence to dict
+        # if sequence is a string, just add the string, otherwise combine keys
+        # and add to dict
+        self.dict.add(seq if isinstance(seq, str) else ''.join(key_func(item) for item in seq))
 
-        # apply proc function to sequence
-        seq = [ps for ps in proc(seq *proc_args, **proc_kwargs)]
+        # apply proc function to sequence and split into subsequences
+        seq = [subseq for subseq in proc(seq *proc_args, **proc_kwargs)]
 
-        # add items for each sequence
+        # add items for each subsequence
         for subseq in seq:
+            # reset root node and recorded depth
             node = self._root
             depth = 0
 
+            # add each node in the subsequence to the trie, and increase depth
+            # recorded
             for item in subseq:
                 node = node.add(item, key_func = key_func)
                 depth += 1
 
+            # create terminating node
             node.terminate(data)
 
+            # record maximum depth of trie
             if depth > self._depth: self._depth = depth
 
         return self
 
-    def _get_node_at_prefix(self, prefix: Sequence[Any] = '', proc: Callable[Triesonode, Any] = None):
+    def _get_node_at_prefix(self,
+                            prefix: Sequence[Any] = '',
+                            *,
+                            proc: Callable[Triesonode, Any] = None):
         "Get node corresponding to final item of prefix"
 
         if not prefix: return self._root
@@ -151,7 +185,10 @@ class Trieson:
         # start at root node
         node = self._root
 
-        # traverse trie
+        # traverse trie, following each item in `prefix`
+        # if an item can't be found, return `None` as `prefix` doesn't exist in
+        # the trie
+        # can execute a function on each node traversed
         for item in prefix:
             node = node[item]
             if not node: return None
@@ -167,11 +204,8 @@ class Trieson:
     def has(self, seq: Sequence[Any]):
         "See if string is in Trie"
 
-        node = self._root
-        for item in seq:
-            node = node[item]
-            if not node:
-                return False
+        node = _get_node_at_prefix(seq)
+        if not node: return False
 
         return node.has_terminator()
 

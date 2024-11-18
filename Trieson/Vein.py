@@ -1,4 +1,4 @@
-""" Trietor.py
+""" Vein.py
 --------------
 Defines the object that holds a Trieson query result
 """
@@ -6,21 +6,21 @@ Defines the object that holds a Trieson query result
 from __future__ import annotations
 
 from typing import Optional, Any, Self
-from collections.abc import Sequence, Iterable, Callable
+from collections.abc import Iterable, Sequence, Callable
 from copy import copy
 
-from .items import AbstractItem
+from .vessels import Vessel
 
 import logging
 
-class Trietor(Sequence):
+class Vein(Sequence):
     """
-    Trietor class
+    Vein class
     """
 
     # --- CONSTRUCTOR -------------------------------------------------------
 
-    def __init__(self, items: Optional[AbstractItem|Sequence[AbstractItem]] = None):
+    def __init__(self, items: Optional[Vessel|Sequence[Vessel]] = None):
         self._items = list()
         self._keys = dict()
 
@@ -31,16 +31,16 @@ class Trietor(Sequence):
     def copy(self):
         "Make a copy of instance"
 
-        return Trietor(copy(self._items))
+        return Vein(copy(self._items))
 
-    def add(self, items: AbstractItem|Iterable[AbstractItem]|Trietor) -> Self:
+    def add(self, items: Vessel|Sequence[Vessel]|Vein) -> Self:
         """
         Add item to collection. Can pass a single item, a sequence of items, or
-        another Trietor instance.
+        another Vein instance.
         """
 
         # add a single item
-        if isinstance(items, AbstractItem):
+        if isinstance(items, Vessel):
             item = items
 
             self._items.append(item)
@@ -67,7 +67,7 @@ class Trietor(Sequence):
 
         return self.add(*args, **kwargs)
 
-    def pop(self) -> AbstractItem:
+    def pop(self) -> Vessel:
         "Remove and return final item"
 
         item = self._items.pop()
@@ -82,12 +82,12 @@ class Trietor(Sequence):
 
         return self
 
-    def __add__(self, other: Trietor|AbstractItem|Iterable[AbstractItem]) -> Trietor:
-        "Append Trietor instances. Terminal data taken from right operand."
+    def __add__(self, other: Vein|Vessel|Sequence[Vessel]) -> Vein:
+        "Append Vein instances. Terminal data taken from right operand."
 
         return self.copy().add(other)
 
-    def __iadd__(self, other: Trietor|AbstractItem|Iterable[AbstractItem]) -> Self:
+    def __iadd__(self, other: Vein|Vessel|Sequence[Vessel]) -> Self:
         "Add right sequence to collection. Data taken from added sequence."
 
         self.add(other)
@@ -112,13 +112,13 @@ class Trietor(Sequence):
     def items(self) ->list:
         return self._items
 
-    def __getitem__(self, ix) -> Trietor:
+    def __getitem__(self, ix) -> Vein:
         "Get item(s) by index, key, or slice"
 
         if type(ix) is str:
-            return Trietor([self.items[x] for x in self._keys[ix]])
+            return Vein([self.items[x] for x in self._keys[ix]])
         else:
-            return Trietor(self.items[ix])
+            return Vein(self.items[ix])
 
     def __iter__(self):
         "Iterate over all data"
@@ -140,10 +140,10 @@ class Trietor(Sequence):
 
         return data in self.data
 
-    def has_item(self, item: AbstractItem) -> bool:
+    def has_item(self, item: Vessel) -> bool:
         "Test if item in collection by testing for key"
 
-        return any(self.items[ix] == item for ix in self._keys[item.key])
+        return any(self.items[ix] == item for ix in self._keys.get(item.key, ()))
 
     def __contains__(self, key: str) -> bool:
         "See if key is in collection"
@@ -155,7 +155,7 @@ class Trietor(Sequence):
 
         return len(self.items)
 
-    def __eq__(self, other: Trietor):
+    def __eq__(self, other: Vein):
         """
         Test for equality by item.
         """
@@ -176,7 +176,7 @@ class Trietor(Sequence):
     def __repr__(self):
         "Programmatic string representation"
 
-        return f'Trietor({self._items})'
+        return f'Vein({self._items})'
 
     def __str__(self):
         "Alias for as_str()"

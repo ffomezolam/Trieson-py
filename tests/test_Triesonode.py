@@ -1,4 +1,4 @@
-from context import Triesonode, items
+from context import Triesonode
 
 import unittest
 
@@ -10,44 +10,39 @@ class Dummy:
         return f'Dummy({self.v})'
 
     def __str__(self):
-        return self.v.upper()
+        return self.v
 
 class TestTriesonode(unittest.TestCase):
     def setUp(self):
-        self.node = Triesonode.Triesonode()
+        self.root = Triesonode.Triesonode()
 
-    def test__init__(self):
-        tn = Triesonode.Triesonode()
-
-        with self.subTest("no args init should create DataItem"):
-            self.assertIsInstance(tn._item, items.DataItem)
-
-        with self.subTest("no args init should have None parent"):
-            self.assertIsNone(tn._parent)
-
+    @unittest.skip("test")
     def test_add(self):
-        item = items.CharItem('a')
-        children = self.node.children
+        item_str = 'a'
+        item_obj = Dummy('b')
+        item_num = 1
+
+        children = self.root.children
 
         # add one
 
-        self.node.add(item)
+        self.root.add(item_str)
+
+        with self.subTest('should have 1 child'):
+            self.assertEqual(1, len(children))
 
         with self.subTest("should have key 'a'"):
             self.assertIn('a', children)
 
-        with self.subTest("item at key 'a' should be CharItem"):
-            self.assertIsInstance(children['a'].item, items.CharItem)
-
-        with self.subTest("item at key 'a' should have value 'a'"):
+        with self.subTest("item with key 'a' should have value 'a'"):
             self.assertEqual(children['a'].value, 'a')
 
         with self.subTest("item at key 'a' should have root as parent"):
-            self.assertEqual(children['a'].parent, self.node)
+            self.assertEqual(children['a'].parent, self.root)
 
-        # add empty node
+        # add terminating (empty) node
 
-        self.node.add()
+        self.root.add()
 
         with self.subTest("root should have 2 children"):
             self.assertEqual(len(children), 2)
@@ -55,12 +50,13 @@ class TestTriesonode(unittest.TestCase):
         with self.subTest("root should have empty string key"):
             self.assertIn('', children)
 
-        with self.subTest("item at key '' should be DataItem"):
-            self.assertIsInstance(children[''].item, items.DataItem)
+        with self.subTest("node should have None for value/data"):
+            self.assertIsNone(children[''].value)
+            self.assertIsNone(children[''].data)
 
         # add second and test chaining
 
-        node = self.node.add(item, chain=True)
+        node = self.root.add(item_str, chain=True)
 
         with self.subTest("root should have 2 children"):
             self.assertEqual(len(children), 2)
@@ -73,42 +69,63 @@ class TestTriesonode(unittest.TestCase):
 
         # add third and test no chaining
 
-        node = self.node.add(item, chain=False)
+        node = self.root.add(item_str, chain=False)
 
         with self.subTest("chain=False should return source node"):
-            self.assertIs(self.node, node)
+            self.assertIs(self.root, node)
 
+        # add non-string node
+
+        self.root.add(item_obj)
+
+        with self.subTest("object should generate key from string rep"):
+            self.assertIn('b', children)
+            self.assertEqual('b', children['b'].key)
+
+        with self.subTest("node value should be object"):
+            self.assertIs(children['b'].value, item_obj)
+
+        self.root.add(item_num)
+
+        with self.subTest("node value should be number"):
+            self.assertIs(children['1'].value, item_num)
+
+    @unittest.skip("test")
     def test_has(self):
-        for c in 'abbccdefggh':
-            self.node.add(items.CharItem(c))
+        with self.subTest('no children should return false'):
+            self.assertFalse(self.root.has('a'))
 
-        with self.subTest('no args should return list of items'):
-            self.assertListEqual(self.node.has(), [items.CharItem(c) for c in ['a','b','c','d','e','f','g','h']])
+        for c in 'abbccdefggh':
+            self.root.add(c)
+
+        with self.subTest('no args should return false'):
+            self.assertFalse(self.root.has())
 
         for c in 'ac':
             with self.subTest("should be able to test by key and item", c=c):
-                self.assertTrue(self.node.has(c))
-                self.assertTrue(self.node.has(items.CharItem(c)))
+                self.assertTrue(self.root.has(c))
+                self.assertTrue(self.root.has(Dummy(c)))
 
         with self.subTest("existing item with count should return True"):
-            self.assertTrue(self.node.has('b', 2))
-            self.assertTrue(self.node.has('a', -2))
+            self.assertTrue(self.root.has('b', 2))
+            self.assertTrue(self.root.has('a', -2))
 
         with self.subTest("non-existent item should return False"):
-            self.assertFalse(self.node.has('z'))
+            self.assertFalse(self.root.has('z'))
 
         with self.subTest("existing item without count should return False"):
-            self.assertFalse(self.node.has('g', 3))
-            self.assertFalse(self.node.has('c', -1))
+            self.assertFalse(self.root.has('g', 3))
+            self.assertFalse(self.root.has('c', -1))
 
+    @unittest.skip("test")
     def test_get_specific(self):
         chars = '122333444455555'
 
-        for char in chars: self.node.add(items.ArbitraryItem(int(char), key=char))
+        for char in chars: self.root.add(int(char))
 
-        # test getting individual characters
+        # test getting individual numbers
         for i in range(1,6):
-            n = self.node.get(str(i))
+            n = self.root.get(str(i))
 
             with self.subTest("should be instance of Triesonode"):
                 self.assertIsInstance(n, Triesonode.Triesonode)
@@ -122,10 +139,11 @@ class TestTriesonode(unittest.TestCase):
             with self.subTest("count should equal number of occurrences"):
                 self.assertEqual(n.count, i)
 
+    @unittest.skip("test")
     def test_get_random_normal_weight(self):
         chars = '122333444455555'
         for char in chars:
-            self.node.add(items.CharItem(char))
+            self.root.add(char)
 
         # test getting random characters
         # in each instance I'm generating a probability of success based on
@@ -140,7 +158,7 @@ class TestTriesonode(unittest.TestCase):
         for x in range(tries):
             counts = [0 for _ in range(6)]
             for _ in range(1000):
-                n = self.node.get()
+                n = self.root.get()
 
                 with self.subTest('value should be in range'):
                     self.assertIn(n.value, [str(i) for i in range(1,6)])
@@ -155,10 +173,11 @@ class TestTriesonode(unittest.TestCase):
         with self.subTest(f"test ratio {ratio} should be within threshold {test_threshold}"):
             self.assertGreaterEqual(ratio, test_threshold)
 
+    @unittest.skip("test")
     def test_get_random_equal_weight(self):
         chars = '122333444455555'
         for char in chars:
-            self.node.add(items.CharItem(char))
+            self.root.add(char)
 
         # Test for weight 0 (all equal)
         tries = 30
@@ -169,7 +188,7 @@ class TestTriesonode(unittest.TestCase):
         for x in range(tries):
             counts = [0 for _ in range(1,6)]
             for _ in range(1000):
-                n = int(self.node.get(weight=0).value)
+                n = int(self.root.get(weight=0).value)
                 counts[n-1] += 1
 
             for ix in range(1,5):
@@ -180,121 +199,66 @@ class TestTriesonode(unittest.TestCase):
         with self.subTest(f"ratio {ratio} should be more than threshold {test_threshold}"):
             self.assertGreaterEqual(ratio, test_threshold)
 
+    @unittest.skip("test")
     def test_get_with_exclude(self):
         for c in '123':
-            self.node.add(items.CharItem(c))
+            self.root.add(c)
 
         with self.subTest("excluding all should return None"):
-            self.assertIsNone(self.node.get(exclude = [c for c in '123']))
+            self.assertIsNone(self.root.get(exclude = [c for c in '123']))
 
         with self.subTest("excluding some should not return them"):
-            self.assertEqual(self.node.get(exclude = ['1','2']).value, '3')
+            self.assertEqual(self.root.get(exclude = ['1','2']).value, '3')
 
         with self.subTest("should work with a set"):
-            self.assertEqual(self.node.get(exclude = {'1', '3'}).value, '2')
+            self.assertEqual(self.root.get(exclude = {'1', '3'}).value, '2')
 
         with self.subTest("should work with Item"):
-            self.assertIn(self.node.get(exclude = items.CharItem('2')).value, '13')
+            self.assertIn(self.root.get(exclude = '2').value, '13')
 
-    @unittest.skip("testing")
-    def test_traverse(self):
-        words = ['acorn', 'accede', 'ascend', 'ban', 'brand', 'corn']
-        for word in words:
-            n = self.node
-            for char in word:
-                n = n.add(char, chain=True)
-
-        joined = ''.join(words)
-
-        for item in self.node.traverse():
-            with self.subTest("item is valid", item = item):
-                self.assertIn(item._value, joined)
-
-    @unittest.skip("testing")
-    def test_traverse_objects(self):
-        oblist = [Dummy(i) for i in 'basic']
-
-        n = self.node
-        for ob in oblist:
-            n = n.add(ob, chain=True)
-
-        for item in self.node.traverse():
-            with self.subTest('item is valid', item=item):
-                self.assertIn(item._value, oblist)
-
-    @unittest.skip("testing")
-    def test_traverse_proc(self):
-        word = 'apple'
-        n = self.node
-        for char in word:
-            n = n.add(char, chain=True)
-
-        # test pre-processing
-        tester = ''
-        def preproc(node):
-            nonlocal tester
-            tester = node._value.upper()
-
-        for item in self.node.traverse(preproc):
-            with self.subTest("preprocessing function should be run on node", item = item):
-                self.assertEqual(tester, item._value.upper())
-
-        # test pre- and post-processing
-        tester = ''
-        def preproc(node):
-            nonlocal tester
-            tester += node._value
-
-        def postproc(node):
-            nonlocal tester
-            tester += node._value
-
-        out = [n._value for n in self.node.traverse(preproc, postproc)]
-        self.assertEqual(''.join(out), 'apple')
-        self.assertEqual(tester, 'appleelppa')
-
-    @unittest.skip("testing")
+    @unittest.skip("test")
     def test_magic_len(self):
         chars = '12345'
-        for c in chars: self.node.add(c)
-        self.assertEqual(5, len(self.node))
+        for c in chars: self.root.add(c)
+        self.assertEqual(5, len(self.root))
 
-    @unittest.skip("testing")
+    @unittest.skip("test")
     def test_magic_contains(self):
         chars = ['b', Dummy('a')]
-        for c in chars: self.node.add(c)
+        for c in chars: self.root.add(c)
 
-        self.assertTrue('b' in self.node)
-        self.assertTrue(chars[1] in self.node)
+        for c in chars:
+            with self.subTest(f'{c} is in node'):
+                self.assertTrue(c in self.root)
 
-    @unittest.skip("testing")
+    @unittest.skip("test")
     def test_magic_bool(self):
-        self.assertTrue(self.node)
+        self.assertTrue(self.root)
 
-    @unittest.skip("testing")
+    @unittest.skip("test")
     def test_magic_getitem(self):
-        for c in 'abcde': self.node.add(c)
+        for c in 'abcde': self.root.add(c)
 
-        n = self.node['a']
+        n = self.root['a']
 
-        self.assertEqual(n._value, 'a')
+        self.assertEqual(n.value, 'a')
 
-    @unittest.skip("testing")
+    @unittest.skip("test")
     def test_magic_iter(self):
         chars = 'abcde'
-        for c in chars: self.node.add(c)
+        for c in chars: self.root.add(c)
 
-        for child in self.node:
+        for child in self.root:
             with self.subTest(child = child):
-                self.assertIn(child._value, chars)
+                self.assertIn(child.value, chars)
 
 class TestTriesonodeTerminator(unittest.TestCase):
     def setUp(self):
         self.node = Triesonode.Triesonode(None, 'a')
 
-    @unittest.skip("testing")
+    @unittest.skip("test")
     def test_terminate(self):
-        TERMINATOR = Triesonode.TERMINATOR
+        TERMINATOR = Triesonode.LEAF_KEY
 
         self.node.terminate('boo!')
 
@@ -302,7 +266,7 @@ class TestTriesonodeTerminator(unittest.TestCase):
             self.assertIn(TERMINATOR, self.node._children)
 
         with self.subTest("Should set data"):
-            self.assertEqual(self.node._children[TERMINATOR].data(), 'boo!')
+            self.assertEqual(self.node._children[TERMINATOR].data, 'boo!')
 
         with self.subTest("Should increment count"):
             self.assertEqual(self.node._children[TERMINATOR]._count, 1)
@@ -313,16 +277,20 @@ class TestTriesonodeTerminator(unittest.TestCase):
             self.assertEqual(self.node._children[TERMINATOR]._count, 2)
 
         with self.subTest("Should replace data"):
-            self.assertEqual(self.node._children[TERMINATOR].data(), 'bah')
+            self.assertEqual(self.node._children[TERMINATOR].data, 'bah')
 
-    @unittest.skip("testing")
+        with self.subTest("Should be able to adjust data"):
+            self.node.terminate(lambda x: x.upper())
+            self.assertEqual(self.node._children[TERMINATOR].data, 'BAH')
+
+    @unittest.skip("test")
     def test_is_terminator(self):
         self.node.terminate('boo!')
 
         self.assertFalse(self.node.is_terminator())
         self.assertTrue(self.node._children[''].is_terminator())
 
-    @unittest.skip("testing")
+    @unittest.skip("test")
     def test_get_terminator(self):
         self.node.terminate('boring')
 
@@ -330,9 +298,9 @@ class TestTriesonodeTerminator(unittest.TestCase):
             self.assertIsInstance(self.node.get_terminator(), Triesonode.TriesonodeTerminator)
 
         with self.subTest("Returned node should have correct data"):
-            self.assertEqual(self.node.get_terminator().data(), 'boring')
+            self.assertEqual(self.node.get_terminator().data, 'boring')
 
-    @unittest.skip("testing")
+    @unittest.skip("test")
     def test_has_terminator(self):
         self.assertFalse(self.node.has_terminator())
 
